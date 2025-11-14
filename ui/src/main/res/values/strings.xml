@@ -1,0 +1,16 @@
+<resources>
+    <string name="new_chat">New chat</string>
+    <string name="ask_anything_from_doc_asist">Ask anything from DocAssist AI</string>
+    <string name="medical_facts_check">Medical fact checks, prescriptions and more..</string>
+    <string name="create_medical_document">Create medical document</string>
+    <string name="docAssist_ai_can_either_listen">DocAssist AI can either listen to your live consultation or your dictation to create a medical document</string>
+    <string name="start_typing">Start typing...</string>
+    <string name="how_would_you_like_to_continue">How would you like to continue?</string>
+    <string name="conversation_mode">Conversation mode</string>
+    <string name="docAssist_will_listen_to_your_conversation">DocAssist will listen to your conversation and create a medical document</string>
+    <string name="dictation_mode">Dictation mode</string>
+    <string name="dictates_your_notes_to_docAssist_and_create">Dictate your notes to DocAssist and create a medical document</string>
+    <string name="start_new_chat">Ask anything...</string>
+    <string name="tap_to_stop_recording">Tap to stop recording</string>
+    <string name="converting_to_text">Converting to text...</string>
+</resources>
