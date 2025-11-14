@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import com.eka.chat.common.EkaChatSheetContent
 import com.eka.conversation.common.Utils
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.data.local.models.MessageType
@@ -53,7 +52,6 @@ fun EkaChatBotMainScreen(
     val onDismissBottomSheet: () -> Unit = {
         scope.launch {
             showBottomSheet = false
-            viewModel.currentSheetContent = null
         }
     }
     var sessionId by remember {
@@ -163,9 +161,6 @@ fun EkaChatBotMainScreen(
                     }
                 },
                 openDocumentSelector = {
-                    viewModel.currentSheetContent =
-                        EkaChatSheetContent.Voice2RxMedicalBottomSheet
-                    onOpenBottomSheet()
                 },
                 isInputBottomSheetVisible = isInputBottomSheetVisible
             )

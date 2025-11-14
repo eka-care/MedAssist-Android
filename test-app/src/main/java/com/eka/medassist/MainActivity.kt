@@ -4,13 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.eka.medassist.ui.chat.navigation.ChatScreenNavModel
+import com.eka.medassist.ui.chat.presentation.screens.EkaChatBotMainScreen
+import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.theme.MedAssistTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,12 +19,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MedAssistTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                EkaChatBotMainScreen(
+                    navData = ChatScreenNavModel(sessionId = null),
+                    viewModel = EkaChatViewModel(app = application)
+                ) { }
             }
         }
     }

@@ -10,8 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.eka.chat.common.EkaChatSheetContent
-import com.eka.medassist.ui.chat.utility.MessageTypeMapping
 import com.eka.conversation.ChatInit
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
@@ -26,6 +24,7 @@ import com.eka.medassist.ui.chat.presentation.models.ChatSession
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.screens.BotViewMode
 import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
+import com.eka.medassist.ui.chat.utility.MessageTypeMapping
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,7 +39,6 @@ class EkaChatViewModel(
     val app: Application
 ) : AndroidViewModel(app) {
 
-    var currentSheetContent by mutableStateOf<EkaChatSheetContent?>(null)
     var sessionId by mutableStateOf("")
     var sendButtonEnabled by mutableStateOf(true)
 

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -51,7 +52,6 @@ dependencies {
     implementation(libs.androidx.fonts)
     implementation(libs.compose.markdown)
     api(libs.ai.chat)
-
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
