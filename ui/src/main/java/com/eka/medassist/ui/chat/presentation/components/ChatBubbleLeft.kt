@@ -16,7 +16,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.chat.presentation.models.ChatMessage
 import com.eka.medassist.ui.chat.presentation.states.ActionType
-import com.eka.conversation.ui.presentation.components.BorderCard
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.data.local.models.MessageType

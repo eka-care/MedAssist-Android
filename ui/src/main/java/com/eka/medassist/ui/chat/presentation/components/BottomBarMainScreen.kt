@@ -24,11 +24,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
-import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.conversation.common.PermissionUtils
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
 import com.eka.medassist.ui.chat.common.models.CTA
+import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import kotlinx.coroutines.delay
@@ -132,6 +132,7 @@ fun BottomBarMainScreen(
                         return@EkaChatInputBottom
                     }
                     if (it.isNotEmpty()) {
+                        viewModel.askNewQuery(query = it)
                         //TODO ask new query
                     } else {
                         viewModel.showToast("Please enter a query.")

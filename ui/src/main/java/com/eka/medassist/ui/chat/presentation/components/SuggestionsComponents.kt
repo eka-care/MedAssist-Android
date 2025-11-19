@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
-import com.eka.conversation.ui.presentation.components.BorderCard
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000

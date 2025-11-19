@@ -10,27 +10,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.eka.conversation.ChatInit
+import com.eka.conversation.client.ChatInit
+import com.eka.conversation.client.Environment
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
+import com.eka.conversation.common.models.AuthConfiguration
+import com.eka.conversation.common.models.ChatInitConfiguration
 import com.eka.conversation.data.local.db.entities.MessageEntity
 import com.eka.conversation.data.local.db.entities.models.MessageFileType
 import com.eka.conversation.data.local.db.entities.models.MessageRole
 import com.eka.conversation.features.audio.AndroidAudioRecorder
 import com.eka.medassist.ui.chat.data.local.models.ChatContext
 import com.eka.medassist.ui.chat.data.local.models.MessageType
-import com.eka.medassist.ui.chat.presentation.models.ChatMessage
+import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.presentation.models.ChatSession
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.screens.BotViewMode
 import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
 import com.eka.medassist.ui.chat.utility.MessageTypeMapping
+import com.eka.networking.client.NetworkConfig
+import com.eka.networking.token.TokenStorage
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.io.File
 import com.eka.medassist.ui.chat.common.Response as EkaResponse
@@ -39,14 +43,16 @@ class EkaChatViewModel(
     val app: Application
 ) : AndroidViewModel(app) {
 
+    companion object {
+        const val TAG = "EkaChatViewModel"
+    }
+
     var sessionId by mutableStateOf("")
     var sendButtonEnabled by mutableStateOf(true)
 
     private val _sessionMessages =
         MutableStateFlow(SessionMessagesState(isLoading = true, messageEntityResp = emptyList()))
     val sessionMessages = _sessionMessages.asStateFlow()
-
-    var voice2RxContext by mutableStateOf<String>("")
     var currentChatContext by mutableStateOf<ChatContext?>(null)
 
     private lateinit var audioRecorder: AndroidAudioRecorder
@@ -86,8 +92,56 @@ class EkaChatViewModel(
     init {
         ChatInit.initialize(
             context = app,
-            chatInitConfiguration = null
+            chatInitConfiguration = ChatInitConfiguration(
+                environment = Environment.DEV,
+                networkConfig = NetworkConfig(
+                    appId = "MedAssist",
+                    baseUrl = "https://api.eka.care",
+                    appVersionCode = 1,
+                    appVersionName = "MedAssist-Android-1",
+                    headers = emptyMap(),
+                    isDebugApp = true,
+                    tokenStorage = object : TokenStorage {
+                        override fun getAccessToken(): String {
+                            MedAssistLogger.d("EkaChatViewModel", "getAccessToken")
+                            return ""
+                        }
+
+                        override fun getRefreshToken(): String {
+                            MedAssistLogger.d("EkaChatViewModel", "getRefreshToken")
+                            return ""
+                        }
+
+                        override fun saveTokens(
+                            accessToken: String,
+                            refreshToken: String
+                        ) {
+                            MedAssistLogger.d("EkaChatViewModel", "saveTokens")
+                        }
+
+                        override fun onSessionExpired() {
+                            MedAssistLogger.d("EkaChatViewModel", "onSessionExpired")
+                        }
+                    }
+                ),
+                authConfiguration = AuthConfiguration(
+                    "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI="
+                ),
+            )
         )
+    }
+
+    fun createNewSession() {
+        viewModelScope.launch {
+            ChatInit.startChatSession(userId = "divyesh-test-user")
+            ChatInit.listenConnectionState()?.collect {
+                MedAssistLogger.d(TAG, it.toString())
+            }
+        }
+    }
+
+    fun askNewQuery(query : String) {
+        ChatInit.sendNewQuery(query = query, toolUseId = null)
     }
 
     fun updateBotViewMode(newMode: BotViewMode) {
@@ -114,22 +168,6 @@ class EkaChatViewModel(
             messageEntityResp = emptyList(),
         )
         clearSuggestionList()
-    }
-
-    fun getNewMsgId(messages: List<ChatMessage>): Int {
-        if (messages.isEmpty()) {
-            return 0
-        }
-        return messages.first().message.msgId + 1
-    }
-
-    suspend fun getNewMsgIdBySessionId(sessionId: String): Int {
-        val sessionMessages =
-            ChatInit.getMessagesBySessionId(sessionId = sessionId)?.data?.firstOrNull()
-        if (sessionMessages.isNullOrEmpty()) {
-            return 0
-        }
-        return sessionMessages.maxBy { it.createdAt }.msgId + 1
     }
 
     fun getSearchResults(searchQuery: String, ownerId: String? = null) {
@@ -418,18 +456,18 @@ class EkaChatViewModel(
         val patientId = chatContext?.patientId ?: ""
         val files = mutableListOf<String>()
 
-        val message = MessageEntity(
-            msgId = getNewMsgId(_sessionMessages.value.messageEntityResp),
-            sessionId = sessionId,
-            sessionIdentity = patientId,
-            ownerId = ownerId,
-            messageText = query,
-            role = MessageRole.USER,
-            msgType = MessageType.TEXT.stringValue,
-            createdAt = Utils.getCurrentUTCEpochMillis(),
-            chatContext = chatContext?.let { Gson().toJson(it) },
-            messageFiles = files
-        )
+//        val message = MessageEntity(
+//            msgId = getNewMsgId(_sessionMessages.value.messageEntityResp),
+//            sessionId = sessionId,
+//            sessionIdentity = patientId,
+//            ownerId = ownerId,
+//            messageText = query,
+//            role = MessageRole.USER,
+//            msgType = MessageType.TEXT.stringValue,
+//            createdAt = Utils.getCurrentUTCEpochMillis(),
+//            chatContext = chatContext?.let { Gson().toJson(it) },
+//            messageFiles = files
+//        )
     }
 
     fun startAudioRecording(onError: (String) -> Unit) {
@@ -476,7 +514,7 @@ class EkaChatViewModel(
         msgId: Int,
     ): MessageEntity {
         return MessageEntity(
-            msgId = msgId,
+            msgId = msgId.toString(),
             sessionId = sessionId,
             messageText = sessionInfo,
             role = MessageRole.AI,

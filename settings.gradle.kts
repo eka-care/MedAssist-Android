@@ -20,6 +20,7 @@ dependencyResolutionManagement {
         maven {
             url = uri("https://jitpack.io")
         }
+        maven { url = uri("file:///${System.getProperty("user.home")}/.m2/repository") }
     }
 }
 

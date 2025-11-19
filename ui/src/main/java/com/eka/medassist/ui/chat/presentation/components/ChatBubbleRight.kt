@@ -9,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.chat.presentation.models.ChatMessage
-import com.eka.conversation.ui.presentation.components.BorderCard
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral800
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 import dev.jeziellago.compose.markdowntext.MarkdownText
