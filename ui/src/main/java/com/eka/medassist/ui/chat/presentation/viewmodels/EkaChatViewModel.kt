@@ -16,22 +16,20 @@ import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
 import com.eka.conversation.common.models.AuthConfiguration
 import com.eka.conversation.common.models.ChatInitConfiguration
+import com.eka.conversation.common.models.SpeechToTextConfiguration
 import com.eka.conversation.data.local.db.entities.MessageEntity
 import com.eka.conversation.data.local.db.entities.models.MessageFileType
-import com.eka.conversation.data.local.db.entities.models.MessageRole
 import com.eka.conversation.features.audio.AndroidAudioRecorder
+import com.eka.conversation.features.audio.ISpeechToText
 import com.eka.medassist.ui.chat.data.local.models.ChatContext
-import com.eka.medassist.ui.chat.data.local.models.MessageType
 import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.presentation.models.ChatSession
 import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.screens.BotViewMode
 import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
-import com.eka.medassist.ui.chat.utility.MessageTypeMapping
 import com.eka.networking.client.NetworkConfig
 import com.eka.networking.token.TokenStorage
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -128,8 +126,17 @@ class EkaChatViewModel(
                         }
                     }
                 ),
+                speechToTextConfiguration = SpeechToTextConfiguration(
+                    speechToText = object : ISpeechToText {
+                        override fun onSpeechToTextComplete(text: String?) {
+                            // TODO to update input field with text
+                        }
+                    }
+                ),
                 authConfiguration = AuthConfiguration(
-                    "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI="
+                    agentId = "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI=",
+                    userId = "divyesh-test",
+                    businessId = "divyesh-test"
                 ),
             )
         )
@@ -137,7 +144,7 @@ class EkaChatViewModel(
 
     fun createNewSession() {
         viewModelScope.launch {
-            ChatInit.startChatSession(userId = "divyesh-test-user")
+            ChatInit.startChatSession()
             ChatInit.listenConnectionState()?.collect {
                 MedAssistLogger.d(TAG, it.toString())
             }
@@ -146,6 +153,11 @@ class EkaChatViewModel(
 
     fun askNewQuery(query: String) {
         ChatInit.sendNewQuery(query = query, toolUseId = null)
+        viewModelScope.launch {
+            ChatInit.getResponseStream()?.collect {
+                MedAssistLogger.d(TAG, it.toString())
+            }
+        }
     }
 
     fun updateBotViewMode(newMode: BotViewMode) {
@@ -516,22 +528,6 @@ class EkaChatViewModel(
         }
     }
 
-    fun getMessageEntity(
-        sessionInfo: String,
-        msgType: MessageType,
-        msgId: Int,
-    ): MessageEntity {
-        return MessageEntity(
-            msgId = msgId.toString(),
-            sessionId = sessionId,
-            messageText = sessionInfo,
-            role = MessageRole.AI,
-            msgType = msgType.stringValue,
-            createdAt = Utils.getCurrentUTCEpochMillis(),
-            chatContext = currentChatContext?.let { Gson().toJson(it) },
-        )
-    }
-
     fun generatePdf(data: String, context: Context) {
 //        viewModelScope.launch(Dispatchers.Main) {
 //            try {
@@ -696,20 +692,6 @@ class EkaChatViewModel(
 //            }
 //        }
 //    }
-
-    fun getSubHeadline(session: ChatSession): String {
-        return if (session.totalRecords > 0) {
-            var label = "${session.totalRecords} record saved"
-            if (session.totalConversations > 0) {
-                label += "  •  "
-            }
-            label
-        } else if (session.totalConversations > 0) {
-            ""
-        } else {
-            MessageTypeMapping.getSubHeadline(session.message.msgType)
-        }
-    }
 
     private val _suggestionList = MutableStateFlow<List<SuggestionModel?>>(emptyList())
     val suggestionList = _suggestionList.asStateFlow()

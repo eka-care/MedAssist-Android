@@ -56,7 +56,7 @@ fun ChatBubbleRight(
 //                    }
 //                }
                 MarkdownText(
-                    markdown = chatMessage.message.messageText.toString(),
+                    markdown = chatMessage.message.msgContent,
                     modifier = Modifier.padding(16.dp),
                     style = touchBodyRegular,
                     color = DarwinTouchNeutral800

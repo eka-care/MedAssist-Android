@@ -31,6 +31,9 @@ val messages = mutableListOf<String>().apply {
 
 @Composable
 fun ConversationScreen(viewModel: EkaChatViewModel) {
+    LaunchedEffect(Unit) {
+        viewModel.createNewSession()
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()

@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.eka.conversation.common.Utils
 import com.eka.medassist.ui.R
-import com.eka.medassist.ui.chat.data.local.models.MessageType
 import com.eka.medassist.ui.chat.navigation.ChatScreenNavModel
 import com.eka.medassist.ui.chat.presentation.components.BottomBarMainScreen
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
@@ -78,8 +77,8 @@ fun EkaChatBotMainScreen(
             screenTitle = context.getString(R.string.new_chat)
         } else {
             screenTitle = when (sessionMessages.messageEntityResp.lastOrNull()?.message?.msgType) {
-                MessageType.TEXT.stringValue -> {
-                    sessionMessages.messageEntityResp.lastOrNull()?.message?.messageText
+                com.eka.conversation.data.local.db.entities.models.MessageType.TEXT -> {
+                    sessionMessages.messageEntityResp.lastOrNull()?.message?.msgContent
                         ?: "Conversation"
                 }
 

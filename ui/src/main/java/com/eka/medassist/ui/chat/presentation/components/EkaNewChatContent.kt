@@ -24,13 +24,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import com.eka.conversation.data.local.db.entities.MessageEntity
+import com.eka.conversation.data.local.db.entities.models.MessageRole
+import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.models.ChatMessage
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
-import com.eka.conversation.data.local.db.entities.MessageEntity
-import com.eka.conversation.data.local.db.entities.models.MessageRole
-import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import org.json.JSONObject
@@ -162,7 +162,7 @@ fun ChatMessageComponent(
                 else -> {
                     ChatBubbleLeft(
                         message = chatMessage,
-                        value = message.messageText.toString(),
+                        value = message.msgContent,
                         showResponseButtons = shouldShowResponseButtons(
                             viewModel = viewModel,
                             messages = sessionMessages.messageEntityResp,
@@ -219,8 +219,8 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "copy")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.messageText)
-            clipboardManager.setText(AnnotatedString(chatMessage.message.messageText.toString()))
+            params.put("text", chatMessage.message.msgContent)
+            clipboardManager.setText(AnnotatedString(chatMessage.message.msgContent))
             viewModel.showToast("Copied to Clipboard.")
         }
 
@@ -228,9 +228,9 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "sharepdf")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.messageText)
+            params.put("text", chatMessage.message.msgContent)
             viewModel.generatePdf(
-                data = chatMessage.message.messageText.toString(),
+                data = chatMessage.message.msgContent,
                 context = context
             )
         }
@@ -239,7 +239,7 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "good")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.messageText)
+            params.put("text", chatMessage.message.msgContent)
             viewModel.showToast("Review Submitted.")
         }
 
@@ -247,7 +247,7 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "bad")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.messageText)
+            params.put("text", chatMessage.message.msgContent)
             viewModel.showToast("Review Submitted.")
         }
     }
