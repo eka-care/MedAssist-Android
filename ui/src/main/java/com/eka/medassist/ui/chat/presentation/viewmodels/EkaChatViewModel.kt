@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.eka.conversation.client.ChatInit
 import com.eka.conversation.client.Environment
+import com.eka.conversation.client.models.Message
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
 import com.eka.conversation.common.models.AuthConfiguration
@@ -142,14 +143,21 @@ class EkaChatViewModel(
         )
     }
 
+    val messages = MutableStateFlow<List<Message>>(emptyList())
+
     fun createNewSession() {
         viewModelScope.launch {
             ChatInit.startChatSession()
+            ChatInit.getMessagesBySessionId("ae3dcc47-d3af-42b5-b00d-f0ade721a51a")?.data?.collect {
+                messages.value = it
+            }
             ChatInit.listenConnectionState()?.collect {
                 MedAssistLogger.d(TAG, it.toString())
             }
         }
     }
+
+
 
     fun askNewQuery(query: String) {
         ChatInit.sendNewQuery(query = query, toolUseId = null)

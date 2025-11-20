@@ -26,12 +26,14 @@ fun ConversationInput(viewModel: EkaChatViewModel) {
         when (it) {
             is ConversationInputState.Default -> {
                 DefaultInputComponent(
-                    viewModel = viewModel,
                     onSend = { query ->
                         viewModel.askNewQuery(query = query)
                     },
                     onMicrophoneClick = {
                         viewModel.setInputState(ConversationInputState.Audio)
+                    },
+                    onCancel = {
+
                     }
                 )
             }

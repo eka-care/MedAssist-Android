@@ -12,25 +12,24 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.eka.conversation.client.ChatInit
+import com.eka.conversation.client.models.Message
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.ConversationInput
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import kotlinx.coroutines.launch
 
-val messages = mutableListOf<String>().apply {
-    for (i in 1..20) {
-        add("Test Message $i")
-    }
-}
-
 @Composable
 fun ConversationScreen(viewModel: EkaChatViewModel) {
+    val message = ChatInit.getResponseStream()?.collectAsState(null)?.value
+    val messages = viewModel.messages.collectAsState().value
     LaunchedEffect(Unit) {
         viewModel.createNewSession()
     }
@@ -49,7 +48,16 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
 
         ConversationContent(
             modifier = Modifier.weight(1f).navigationBarsPadding(),
-            messages = messages
+            messages = messages.map {
+                when(it) {
+                    is Message.Text -> {
+                        it.text
+                    }
+                    else -> {
+                        "Default"
+                    }
+                }
+            }.reversed()
         )
 
         ConversationInput(

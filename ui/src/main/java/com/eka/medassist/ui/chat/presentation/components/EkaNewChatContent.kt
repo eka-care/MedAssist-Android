@@ -99,13 +99,13 @@ fun EkaNewChatContent(
 
                     val message = chatMessage.message
 
-                    if (showLoader(
-                            sessionMessages.messageEntityResp,
-                            chatMessage
-                        ) && viewModel.isQueryResponseLoading
-                    ) {
-                        ChatBubbleProcessing()
-                    }
+//                    if (showLoader(
+//                            sessionMessages.messageEntityResp,
+//                            chatMessage
+//                        ) && viewModel.isQueryResponseLoading
+//                    ) {
+//                        ChatBubbleProcessing()
+//                    }
 
                     ChatMessageComponent(
                         chatMessage = chatMessage,
@@ -187,9 +187,6 @@ fun ChatMessageComponent(
 
         }
 
-        MessageRole.CUSTOM -> {
-        }
-
         else -> {
         }
     }
@@ -252,11 +249,6 @@ fun handleMessageCTA(
         }
     }
 }
-
-fun showLoader(messages: List<ChatMessage>, message: ChatMessage): Boolean {
-    return message.message.role == MessageRole.CUSTOM && messages.first().message.msgId == message.message.msgId
-}
-
 fun shouldShowLeftIcon(messages: List<ChatMessage>, currentMessage: MessageEntity): Boolean {
     return true
 }
