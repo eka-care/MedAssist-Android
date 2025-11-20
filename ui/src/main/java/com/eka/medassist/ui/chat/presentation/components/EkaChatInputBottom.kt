@@ -46,11 +46,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.conversation.common.PermissionUtils
 import com.eka.conversation.common.Utils
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
+import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
@@ -266,31 +266,3 @@ fun isEnabled(
 ): Boolean {
     return !isMicrophoneRecording && !isVoice2RxRecording
 }
-//
-//@Composable
-//private fun CustomDragForInputField() {
-//    Box(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .height(24.dp), contentAlignment = Alignment.BottomCenter
-//    ) {
-//        Box(
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .height(24.dp)
-//                .background(Color.White)
-//                .border(
-//                    width = 1.dp,
-//                    color = DarwinTouchPrimary,
-//                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-//                )
-//        )
-//        Box(
-//            modifier = Modifier
-//                .padding(start = 1.dp, end = 1.dp)
-//                .fillMaxWidth()
-//                .height(4.dp)
-//                .background(Color.White)
-//        )
-//    }
-//}

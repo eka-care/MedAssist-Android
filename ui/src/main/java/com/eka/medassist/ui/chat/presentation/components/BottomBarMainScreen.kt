@@ -6,12 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -23,14 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.unit.dp
 import com.eka.conversation.common.PermissionUtils
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
-import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -65,51 +61,11 @@ fun BottomBarMainScreen(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .imePadding(),
         verticalArrangement = Arrangement.Bottom,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (!isInputBottomSheetVisible) {
-            EkaChatBottom(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(DarwinTouchNeutral50)
-                    .padding(bottom = 16.dp)
-                    .imePadding(),
-                showPatientSelection = sessionMessages.messageEntityResp.isEmpty(),
-                onMicrophoneClick = {
-                    if (PermissionUtils.hasRecordAudioPermission(context) && Utils.isNetworkAvailable(
-                            context
-                        )
-                    ) {
-                        hideKeyboardAndShowComposable {
-                            viewModel.isVoiceToTextRecording = true
-                            onClick(CTA(action = ActionType.SHOW_INPUT_BOTTOM_SHEET.stringValue))
-                        }
-                    } else if (!Utils.isNetworkAvailable(context)) {
-                        viewModel.showToast("Internet not available.")
-                    } else {
-                        viewModel.showToast("Microphone permission not granted.")
-                    }
-                },
-                isMicrophoneRecording = viewModel.isVoiceToTextRecording,
-                isVoice2RxRecording = viewModel.isVoice2RxRecording,
-                viewModel = viewModel,
-                onClick = { cta ->
-                    when (cta.action) {
-                        ActionType.ON_GALLERY_CLICK.stringValue -> {
-                            hideKeyboardAndExecute {
-                                openDocumentSelector()
-                            }
-                        }
-
-                        ActionType.OPEN_INPUT_BOTTOM_SHEET.stringValue -> {
-                            onClick(CTA(action = ActionType.SHOW_INPUT_BOTTOM_SHEET.stringValue))
-                        }
-                    }
-                }
-            )
-        }
         AnimatedVisibility(
             visible = isInputBottomSheetVisible,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),

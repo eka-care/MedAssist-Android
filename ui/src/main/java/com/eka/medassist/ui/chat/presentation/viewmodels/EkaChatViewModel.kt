@@ -24,6 +24,7 @@ import com.eka.medassist.ui.chat.data.local.models.ChatContext
 import com.eka.medassist.ui.chat.data.local.models.MessageType
 import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.presentation.models.ChatSession
+import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.screens.BotViewMode
 import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
@@ -49,6 +50,9 @@ class EkaChatViewModel(
 
     var sessionId by mutableStateOf("")
     var sendButtonEnabled by mutableStateOf(true)
+
+    private val _inputState = MutableStateFlow<ConversationInputState>(ConversationInputState.Default)
+    val inputState = _inputState.asStateFlow()
 
     private val _sessionMessages =
         MutableStateFlow(SessionMessagesState(isLoading = true, messageEntityResp = emptyList()))
@@ -140,7 +144,7 @@ class EkaChatViewModel(
         }
     }
 
-    fun askNewQuery(query : String) {
+    fun askNewQuery(query: String) {
         ChatInit.sendNewQuery(query = query, toolUseId = null)
     }
 
@@ -180,6 +184,10 @@ class EkaChatViewModel(
 
             }
         }
+    }
+
+    fun setInputState(state: ConversationInputState) {
+        _inputState.value = state
     }
 
     private fun groupBySessionId(messages: List<MessageEntity>): List<MessageEntity> {
