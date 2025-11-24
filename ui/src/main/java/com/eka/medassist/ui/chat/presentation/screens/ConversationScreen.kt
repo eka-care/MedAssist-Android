@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.eka.conversation.client.ChatInit
 import com.eka.conversation.client.models.Message
 import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.medassist.ui.R
@@ -33,7 +32,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ConversationScreen(viewModel: EkaChatViewModel) {
-    val message = ChatInit.getResponseStream()?.collectAsState(null)?.value
+    val responseStream by viewModel.responseStream.collectAsState()
     val messages = viewModel.messages.collectAsState().value
     LaunchedEffect(Unit) {
         viewModel.createNewSession()
@@ -57,7 +56,7 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
                 .weight(1f)
                 .navigationBarsPadding(),
             messages = messages.reversed(),
-            responseStreamMessage = message
+            responseStreamMessage = responseStream
         )
 
         ConversationInput(

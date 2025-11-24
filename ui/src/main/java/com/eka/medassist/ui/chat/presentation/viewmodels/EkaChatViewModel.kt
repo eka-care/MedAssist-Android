@@ -11,7 +11,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.eka.conversation.client.ChatInit
-import com.eka.conversation.client.Environment
+import com.eka.conversation.client.interfaces.IChatSessionConfig
+import com.eka.conversation.client.interfaces.IResponseStreamHandler
+import com.eka.conversation.client.models.Environment
 import com.eka.conversation.client.models.Message
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
@@ -34,7 +36,9 @@ import com.eka.networking.client.NetworkConfig
 import com.eka.networking.token.TokenStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
@@ -151,33 +155,69 @@ class EkaChatViewModel(
 
     fun createNewSession() {
         viewModelScope.launch {
-            ChatInit.startChatSession()
-            ChatInit.listenConnectionState()?.collect {
-                if(it == SocketConnectionState.Connected) {
-                    listenSessionMessages()
+            ChatInit.startSession(chatSessionConfig = object : IChatSessionConfig {
+                override fun onFailure(error: Exception) {
+                    MedAssistLogger.d(TAG, error.message.toString())
+                    // TODO handle error
                 }
-                _connectionState.value = it
-                MedAssistLogger.d(TAG, it.toString())
-            }
+
+                override fun onSuccess(
+                    sessionId: String,
+                    connectionState: StateFlow<SocketConnectionState>,
+                    sessionMessages: Response<Flow<List<Message>>>,
+                    queryEnabled: StateFlow<Boolean>
+                ) {
+                    onSessionStartSuccess(
+                        sessionId = sessionId,
+                        connectionState = connectionState,
+                        sessionMessages = sessionMessages,
+                        queryEnabled = queryEnabled
+                    )
+                }
+            })
         }
     }
 
-    fun listenSessionMessages() {
+    fun onSessionStartSuccess(
+        sessionId: String,
+        connectionState: StateFlow<SocketConnectionState>,
+        sessionMessages: Response<Flow<List<Message>>>,
+        queryEnabled: StateFlow<Boolean>
+    ) {
         viewModelScope.launch {
-            val sessionId = ChatInit.getCurrentSessionId()?.getOrNull() ?: return@launch
-            ChatInit.getMessagesBySessionId(sessionId)?.data?.collect {
+            sessionMessages.data?.collect {
                 messages.value = it
             }
         }
-    }
-
-    fun askNewQuery(query: String) {
-        ChatInit.sendNewQuery(query = query, toolUseId = null)
         viewModelScope.launch {
-            ChatInit.getResponseStream()?.collect {
-                MedAssistLogger.d(TAG, it.toString())
+            connectionState.collect {
+                _connectionState.value = it
             }
         }
+        viewModelScope.launch {
+            queryEnabled.collect {
+                sendButtonEnabled = it
+            }
+        }
+    }
+
+    private val _responseStream = MutableStateFlow<Message?>(null)
+    val responseStream = _responseStream.asStateFlow()
+
+    fun askNewQuery(query: String) {
+        ChatInit.sendNewQuery(query = query, toolUseId = null, responseHandler = object : IResponseStreamHandler {
+            override fun onFailure(error: Exception) {
+                // TODO handle error
+            }
+
+            override fun onSuccess(responseStream: Flow<Message?>) {
+                viewModelScope.launch {
+                    responseStream.collect {
+                        _responseStream.value = it
+                    }
+                }
+            }
+        })
     }
 
     fun updateBotViewMode(newMode: BotViewMode) {
@@ -207,15 +247,15 @@ class EkaChatViewModel(
     }
 
     fun getSearchResults(searchQuery: String, ownerId: String? = null) {
-        if (searchQuery.isBlank()) {
-            return
-        }
-        viewModelScope.launch {
-            val response = ChatInit.getSearchResult(query = searchQuery, ownerId = ownerId)
-            response?.collect { messages ->
-
-            }
-        }
+//        if (searchQuery.isBlank()) {
+//            return
+//        }
+//        viewModelScope.launch {
+//            val response = ChatInit.getSearchResult(query = searchQuery, ownerId = ownerId)
+//            response?.collect { messages ->
+//
+//            }
+//        }
     }
 
     fun setInputState(state: ConversationInputState) {
