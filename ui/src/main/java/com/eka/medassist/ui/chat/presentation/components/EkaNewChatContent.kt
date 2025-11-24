@@ -83,15 +83,15 @@ fun EkaNewChatContent(
                 horizontalAlignment = Alignment.Start
             ) {
                 if (sessionMessages.messageEntityResp.isNotEmpty() && suggestionList.isNotEmpty() && sessionMessages.messageEntityResp.first().message.role == MessageRole.AI) {
-                    item {
-                        SuggestionsComponent(
-                            onSuggestionClicked = {
-                                onSuggestionClick(it)
-                            },
-                            showLeftIcon = true,
-                            viewModel = viewModel,
-                        )
-                    }
+//                    item {
+//                        SuggestionsComponent(
+//                            onSuggestionClicked = {
+//                                onSuggestionClick(it)
+//                            },
+//                            showLeftIcon = true,
+//                            viewModel = viewModel,
+//                        )
+//                    }
                 }
                 itemsIndexed(
                     items = sessionMessages.messageEntityResp,

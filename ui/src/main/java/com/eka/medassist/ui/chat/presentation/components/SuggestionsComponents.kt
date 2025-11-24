@@ -11,28 +11,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.R
-import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
+import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
 @Composable
 fun SuggestionsComponent(
-    viewModel: EkaChatViewModel,
     onSuggestionClicked: (SuggestionModel) -> Unit,
+    suggestionList : List<SuggestionModel>,
     showLeftIcon: Boolean,
 ) {
     val iconAlpha = if (showLeftIcon) 1f else 0f
-
-    val suggestionList by viewModel.suggestionList.collectAsState()
 
     Row(
         modifier = Modifier
@@ -70,12 +65,10 @@ fun SuggestionsComponent(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     suggestionList.forEach { suggestion ->
-                        if (suggestion != null) {
-                            Suggestion(suggestion = suggestion) {
-                                onSuggestionClicked(suggestion)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
+                        Suggestion(suggestion = suggestion) {
+                            onSuggestionClicked(suggestion)
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             },

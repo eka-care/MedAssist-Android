@@ -3,16 +3,15 @@ package com.eka.medassist.ui.chat.presentation.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,10 +19,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.eka.conversation.client.ChatInit
 import com.eka.conversation.client.models.Message
+import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.ConversationInput
+import com.eka.medassist.ui.chat.presentation.components.SuggestionsComponent
+import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
+import com.eka.medassist.ui.chat.theme.touchBodyRegular
+import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.launch
 
 @Composable
@@ -33,6 +38,7 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
     LaunchedEffect(Unit) {
         viewModel.createNewSession()
     }
+    val connectionState by viewModel.connectionState.collectAsState()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -40,24 +46,18 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
     ) {
         ConversationHeader(
             title = stringResource(id = R.string.new_chat),
-            subTitle = "ParrotLet 1.0",
+            subTitle = getConnectionState(state = connectionState),
             onClick = {
 
             }
         )
 
         ConversationContent(
-            modifier = Modifier.weight(1f).navigationBarsPadding(),
-            messages = messages.map {
-                when(it) {
-                    is Message.Text -> {
-                        it.text
-                    }
-                    else -> {
-                        "Default"
-                    }
-                }
-            }.reversed()
+            modifier = Modifier
+                .weight(1f)
+                .navigationBarsPadding(),
+            messages = messages.reversed(),
+            responseStreamMessage = message
         )
 
         ConversationInput(
@@ -67,7 +67,11 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
 }
 
 @Composable
-private fun ConversationContent(modifier: Modifier = Modifier, messages: List<Any> = emptyList()) {
+private fun ConversationContent(
+    modifier: Modifier = Modifier,
+    messages: List<Message> = emptyList(),
+    responseStreamMessage : Message?,
+) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -84,13 +88,90 @@ private fun ConversationContent(modifier: Modifier = Modifier, messages: List<An
         state = listState,
         reverseLayout = true
     ) {
-        items(messages) {
-            Text(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                text = it.toString()
-            )
+        responseStreamMessage?.let {
+            if (it is Message.Text) {
+                item(key = it.msgId) {
+                    MarkdownText(
+                        modifier = Modifier
+                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+                        markdown = it.text,
+                        truncateOnTextOverflow = true,
+                        enableSoftBreakAddsNewLine = true,
+                        style = touchBodyRegular,
+                        color = DarwinTouchNeutral1000
+                    )
+                }
+            }
+        }
+        items(messages, key = { item -> item.msgId }) { item ->
+            when (item) {
+                is Message.Text -> {
+                    MarkdownText(
+                        modifier = Modifier
+                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+                        markdown = item.text,
+                        truncateOnTextOverflow = true,
+                        enableSoftBreakAddsNewLine = true,
+                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000),
+                    )
+                }
+
+                is Message.SingleSelect -> {
+                    SuggestionsComponent(
+                        showLeftIcon = true,
+                        suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
+                        onSuggestionClicked = {
+                            // TODO Suggestion click
+                        }
+                    )
+                }
+
+                is Message.MultiSelect -> {
+                    SuggestionsComponent(
+                        showLeftIcon = true,
+                        suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
+                        onSuggestionClicked = {
+                            // TODO Suggestion click
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+fun getConnectionState(state: SocketConnectionState): String {
+    when (state) {
+        is SocketConnectionState.Idle -> {
+            return "Idle"
+        }
+
+        is SocketConnectionState.Starting -> {
+            return "Starting Session..."
+        }
+
+        is SocketConnectionState.Connecting -> {
+            return "Connecting..."
+        }
+
+        is SocketConnectionState.SocketConnected -> {
+            return "Authenticating..."
+        }
+
+        is SocketConnectionState.Connected -> {
+            return "Connected"
+        }
+
+        is SocketConnectionState.Disconnecting -> {
+            return "Disconnecting..."
+        }
+
+        is SocketConnectionState.Disconnected -> {
+            return "Disconnected"
+        }
+
+        is SocketConnectionState.Error -> {
+            return "Error : ${state.error.message.toString()}"
         }
     }
 }

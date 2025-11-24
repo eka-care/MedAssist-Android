@@ -20,6 +20,7 @@ import com.eka.conversation.common.models.ChatInitConfiguration
 import com.eka.conversation.common.models.SpeechToTextConfiguration
 import com.eka.conversation.data.local.db.entities.MessageEntity
 import com.eka.conversation.data.local.db.entities.models.MessageFileType
+import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.conversation.features.audio.AndroidAudioRecorder
 import com.eka.conversation.features.audio.ISpeechToText
 import com.eka.medassist.ui.chat.data.local.models.ChatContext
@@ -83,6 +84,9 @@ class EkaChatViewModel(
 
     private val _textInputState = MutableStateFlow("")
     val textInputState = _textInputState.asStateFlow()
+
+    private val _connectionState = MutableStateFlow<SocketConnectionState>(SocketConnectionState.Idle)
+    val connectionState = _connectionState.asStateFlow()
 
     var job: Job? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -148,16 +152,24 @@ class EkaChatViewModel(
     fun createNewSession() {
         viewModelScope.launch {
             ChatInit.startChatSession()
-            ChatInit.getMessagesBySessionId("ae3dcc47-d3af-42b5-b00d-f0ade721a51a")?.data?.collect {
-                messages.value = it
-            }
             ChatInit.listenConnectionState()?.collect {
+                if(it == SocketConnectionState.Connected) {
+                    listenSessionMessages()
+                }
+                _connectionState.value = it
                 MedAssistLogger.d(TAG, it.toString())
             }
         }
     }
 
-
+    fun listenSessionMessages() {
+        viewModelScope.launch {
+            val sessionId = ChatInit.getCurrentSessionId()?.getOrNull() ?: return@launch
+            ChatInit.getMessagesBySessionId(sessionId)?.data?.collect {
+                messages.value = it
+            }
+        }
+    }
 
     fun askNewQuery(query: String) {
         ChatInit.sendNewQuery(query = query, toolUseId = null)
