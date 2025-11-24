@@ -1,6 +1,7 @@
 package com.eka.medassist.ui.chat.presentation.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -13,8 +14,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.eka.conversation.client.models.Message
@@ -28,9 +29,7 @@ import com.eka.medassist.ui.chat.presentation.components.ConversationInput
 import com.eka.medassist.ui.chat.presentation.components.SuggestionsComponent
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
-import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
-import com.eka.medassist.ui.chat.theme.touchBodyRegular
-import dev.jeziellago.compose.markdowntext.MarkdownText
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import kotlinx.coroutines.launch
 
 @Composable
@@ -44,7 +43,7 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(DarwinTouchNeutral50)
     ) {
         ConversationHeader(
             title = stringResource(id = R.string.new_chat),
@@ -57,7 +56,8 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
         ConversationContent(
             modifier = Modifier
                 .weight(1f)
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .padding(start = 16.dp, bottom = 16.dp, end = 8.dp),
             messages = messages.reversed(),
             responseStreamMessage = responseStream
         )
@@ -88,19 +88,19 @@ private fun ConversationContent(
     LazyColumn(
         modifier = modifier,
         state = listState,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.Start,
         reverseLayout = true
     ) {
         responseStreamMessage?.let {
             if (it is Message.Text) {
                 item(key = it.msgId) {
-                    MarkdownText(
-                        modifier = Modifier
-                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                        markdown = it.text,
-                        truncateOnTextOverflow = true,
-                        enableSoftBreakAddsNewLine = true,
-                        style = touchBodyRegular,
-                        color = DarwinTouchNeutral1000
+                    ChatBubbleLeft(
+                        message = it,
+                        isFirstMessage = true,
+                        onClick = {
+
+                        }
                     )
                 }
             }
@@ -119,6 +119,7 @@ private fun ConversationContent(
                         MessageRole.AI -> {
                             ChatBubbleLeft(
                                 message = item,
+                                isFirstMessage = true,
                                 onClick = {
 
                                 }

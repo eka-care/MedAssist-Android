@@ -69,7 +69,7 @@ fun DefaultInputComponent(
             unfocusedIndicatorColor = Color.White,
             cursorColor = DarwinTouchPrimary
         ),
-        enabled = sendEnabled == true,
+        enabled = sendEnabled,
         textStyle = touchBodyRegular,
         value = query,
         onValueChange = { newValue ->
