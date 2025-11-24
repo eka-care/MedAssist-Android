@@ -14,10 +14,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.eka.conversation.client.models.Message
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
-import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
-import com.eka.medassist.ui.chat.presentation.models.ChatMessage
 import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
@@ -25,8 +24,7 @@ import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
 fun ChatBubbleLeft(
-    message: ChatMessage,
-    value: String,
+    message: Message.Text,
     onClick: (CTA) -> Unit,
     showResponseButtons: Boolean = true,
     isFirstMessage: Boolean = false
@@ -63,7 +61,7 @@ fun ChatBubbleLeft(
                         MarkdownText(
                             modifier = Modifier
                                 .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                            markdown = value,
+                            markdown = message.text,
                             truncateOnTextOverflow = true,
                             enableSoftBreakAddsNewLine = true,
                             style = touchBodyRegular,
@@ -74,44 +72,44 @@ fun ChatBubbleLeft(
                 background = Color.Transparent
             )
         }
-        if (message.message.msgType == com.eka.conversation.data.local.db.entities.models.MessageType.TEXT && showResponseButtons) {
-            Row(
-                modifier = Modifier
-                    .padding(start = 24.dp, top = 4.dp)
-            ) {
-                IconButtonWrapper(
-                    onClick = {
-                        onClick(CTA(action = ActionType.ON_POSITIVE_REVIEW_CLICKED.stringValue))
-                    },
-                    icon = R.drawable.ic_thumbs_up_regular,
-                    contentDescription = "Thumbs up",
-                    iconSize = 20.dp
-                )
-                IconButtonWrapper(
-                    onClick = {
-                        onClick(CTA(action = ActionType.ON_NEGETIVE_REVIEW_CLICKED.stringValue))
-                    },
-                    icon = R.drawable.ic_thumbs_down_regular,
-                    contentDescription = "Thumbs down",
-                    iconSize = 20.dp
-                )
-                IconButtonWrapper(
-                    onClick = {
-                        onClick(CTA(action = ActionType.ON_SHARE_CLICKED.stringValue))
-                    },
-                    icon = R.drawable.ic_share_nodes_regular,
-                    contentDescription = "Share",
-                    iconSize = 20.dp
-                )
-                IconButtonWrapper(
-                    onClick = {
-                        onClick(CTA(action = ActionType.ON_COPY_CLICKED.stringValue))
-                    },
-                    icon = R.drawable.ic_copy_regular,
-                    contentDescription = "Copy",
-                    iconSize = 20.dp
-                )
-            }
-        }
+//        if (message.message.msgType == com.eka.conversation.data.local.db.entities.models.MessageType.TEXT && showResponseButtons) {
+//            Row(
+//                modifier = Modifier
+//                    .padding(start = 24.dp, top = 4.dp)
+//            ) {
+//                IconButtonWrapper(
+//                    onClick = {
+//                        onClick(CTA(action = ActionType.ON_POSITIVE_REVIEW_CLICKED.stringValue))
+//                    },
+//                    icon = R.drawable.ic_thumbs_up_regular,
+//                    contentDescription = "Thumbs up",
+//                    iconSize = 20.dp
+//                )
+//                IconButtonWrapper(
+//                    onClick = {
+//                        onClick(CTA(action = ActionType.ON_NEGETIVE_REVIEW_CLICKED.stringValue))
+//                    },
+//                    icon = R.drawable.ic_thumbs_down_regular,
+//                    contentDescription = "Thumbs down",
+//                    iconSize = 20.dp
+//                )
+//                IconButtonWrapper(
+//                    onClick = {
+//                        onClick(CTA(action = ActionType.ON_SHARE_CLICKED.stringValue))
+//                    },
+//                    icon = R.drawable.ic_share_nodes_regular,
+//                    contentDescription = "Share",
+//                    iconSize = 20.dp
+//                )
+//                IconButtonWrapper(
+//                    onClick = {
+//                        onClick(CTA(action = ActionType.ON_COPY_CLICKED.stringValue))
+//                    },
+//                    icon = R.drawable.ic_copy_regular,
+//                    contentDescription = "Copy",
+//                    iconSize = 20.dp
+//                )
+//            }
+//        }
     }
 }

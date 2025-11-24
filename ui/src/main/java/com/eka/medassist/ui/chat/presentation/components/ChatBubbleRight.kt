@@ -8,14 +8,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.eka.medassist.ui.chat.presentation.models.ChatMessage
+import com.eka.conversation.client.models.Message
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral800
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
 fun ChatBubbleRight(
-    chatMessage: ChatMessage,
+    message: Message.Text,
     onClick: () -> Unit,
 ) {
     Row(
@@ -56,7 +56,7 @@ fun ChatBubbleRight(
 //                    }
 //                }
                 MarkdownText(
-                    markdown = chatMessage.message.msgContent,
+                    markdown = message.text,
                     modifier = Modifier.padding(16.dp),
                     style = touchBodyRegular,
                     color = DarwinTouchNeutral800

@@ -18,8 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.eka.conversation.client.models.Message
+import com.eka.conversation.data.local.db.entities.models.MessageRole
 import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.medassist.ui.R
+import com.eka.medassist.ui.chat.presentation.components.ChatBubbleLeft
+import com.eka.medassist.ui.chat.presentation.components.ChatBubbleRight
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.ConversationInput
 import com.eka.medassist.ui.chat.presentation.components.SuggestionsComponent
@@ -105,14 +108,31 @@ private fun ConversationContent(
         items(messages, key = { item -> item.msgId }) { item ->
             when (item) {
                 is Message.Text -> {
-                    MarkdownText(
-                        modifier = Modifier
-                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                        markdown = item.text,
-                        truncateOnTextOverflow = true,
-                        enableSoftBreakAddsNewLine = true,
-                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000),
-                    )
+                    when(item.role) {
+                        MessageRole.USER -> {
+                            ChatBubbleRight(
+                                message = item
+                            ) {
+
+                            }
+                        }
+                        MessageRole.AI -> {
+                            ChatBubbleLeft(
+                                message = item,
+                                onClick = {
+
+                                }
+                            )
+                        }
+                    }
+//                    MarkdownText(
+//                        modifier = Modifier
+//                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+//                        markdown = item.text,
+//                        truncateOnTextOverflow = true,
+//                        enableSoftBreakAddsNewLine = true,
+//                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000),
+//                    )
                 }
 
                 is Message.SingleSelect -> {

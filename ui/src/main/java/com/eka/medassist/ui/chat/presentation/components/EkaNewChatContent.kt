@@ -150,38 +150,38 @@ fun ChatMessageComponent(
 
     when (message.role) {
         MessageRole.USER -> {
-            ChatBubbleRight(
-                chatMessage = chatMessage,
-                onClick = {
-                }
-            )
+//            ChatBubbleRight(
+//                chatMessage = chatMessage,
+//                onClick = {
+//                }
+//            )
         }
 
         MessageRole.AI -> {
             when (message.msgType) {
                 else -> {
-                    ChatBubbleLeft(
-                        message = chatMessage,
-                        value = message.msgContent,
-                        showResponseButtons = shouldShowResponseButtons(
-                            viewModel = viewModel,
-                            messages = sessionMessages.messageEntityResp,
-                            message = chatMessage
-                        ),
-                        onClick = { cta ->
-                            handleMessageCTA(
-                                cta = cta,
-                                chatMessage = chatMessage,
-                                clipboardManager = clipboardManager,
-                                context = context,
-                                viewModel = viewModel
-                            )
-                        },
-                        isFirstMessage = shouldShowLeftIcon(
-                            sessionMessages.messageEntityResp,
-                            currentMessage = message
-                        )
-                    )
+//                    ChatBubbleLeft(
+//                        message = chatMessage,
+//                        value = message.msgContent,
+//                        showResponseButtons = shouldShowResponseButtons(
+//                            viewModel = viewModel,
+//                            messages = sessionMessages.messageEntityResp,
+//                            message = chatMessage
+//                        ),
+//                        onClick = { cta ->
+//                            handleMessageCTA(
+//                                cta = cta,
+//                                chatMessage = chatMessage,
+//                                clipboardManager = clipboardManager,
+//                                context = context,
+//                                viewModel = viewModel
+//                            )
+//                        },
+//                        isFirstMessage = shouldShowLeftIcon(
+//                            sessionMessages.messageEntityResp,
+//                            currentMessage = message
+//                        )
+//                    )
                 }
             }
 
