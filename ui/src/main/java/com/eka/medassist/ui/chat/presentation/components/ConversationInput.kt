@@ -13,9 +13,8 @@ import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 
 @Composable
-fun ConversationInput(viewModel: EkaChatViewModel) {
+fun ConversationInput(viewModel: EkaChatViewModel, sendEnabled : Boolean) {
     val state = viewModel.inputState.collectAsState().value
-    val sendEnabled = viewModel.sendButtonEnabled
     AnimatedContent(
         targetState = state,
         transitionSpec = {

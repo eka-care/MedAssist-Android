@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.ConversationInput
 import com.eka.medassist.ui.chat.presentation.components.SuggestionsComponent
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
+import com.eka.medassist.ui.chat.presentation.states.TypewriterState
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import kotlinx.coroutines.launch
@@ -39,6 +41,9 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
         viewModel.createNewSession()
     }
     val connectionState by viewModel.connectionState.collectAsState()
+    val scope = rememberCoroutineScope()
+    val typewriterState = remember { TypewriterState(charDelayMs = 10L, scope = scope) }
+    val streamingMessage by typewriterState.currentMessage
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -57,11 +62,14 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
                 .weight(1f)
                 .padding(start = 16.dp, end = 8.dp),
             messages = messages.reversed(),
-            responseStreamMessage = responseStream
+            responseStreamMessage = responseStream,
+            typewriterState = typewriterState,
+            streamingMessage = streamingMessage
         )
 
         ConversationInput(
-            viewModel = viewModel
+            viewModel = viewModel,
+            sendEnabled = viewModel.sendButtonEnabled && streamingMessage == null
         )
     }
 }
@@ -71,9 +79,25 @@ private fun ConversationContent(
     modifier: Modifier = Modifier,
     messages: List<Message> = emptyList(),
     responseStreamMessage : Message?,
+    typewriterState: TypewriterState,
+    streamingMessage : Message.Text?,
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    val displayedText by typewriterState.displayedMessage.collectAsState()
+
+    LaunchedEffect(responseStreamMessage) {
+        if(responseStreamMessage == null) {
+            typewriterState.complete()
+        } else if(responseStreamMessage is Message.Text) {
+            typewriterState.updateFullMessage(fullMessage = responseStreamMessage)
+        }
+    }
+
+    val displayedMessages = remember(messages, streamingMessage) {
+        messages.filterNot { it.msgId == streamingMessage?.msgId }
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -90,20 +114,14 @@ private fun ConversationContent(
         horizontalAlignment = Alignment.Start,
         reverseLayout = true
     ) {
-        responseStreamMessage?.let {
-            if (it is Message.Text) {
-                item(key = it.msgId) {
-                    ChatBubbleLeft(
-                        message = it,
-                        isFirstMessage = true,
-                        onClick = {
-
-                        }
-                    )
-                }
+        streamingMessage?.let { streamMessage ->
+            item(key = "streaming_${streamMessage.msgId}") {
+                StreamingMessage(
+                    displayedText = displayedText
+                )
             }
         }
-        items(messages, key = { item -> item.msgId }) { item ->
+        items(displayedMessages, key = { item -> item.msgId }) { item ->
             when (item) {
                 is Message.Text -> {
                     when(item.role) {
@@ -116,7 +134,7 @@ private fun ConversationContent(
                         }
                         MessageRole.AI -> {
                             ChatBubbleLeft(
-                                message = item,
+                                message = item.text,
                                 isFirstMessage = true,
                                 onClick = {
 
@@ -192,4 +210,17 @@ fun getConnectionState(state: SocketConnectionState): String {
             return "Error : ${state.error.message.toString()}"
         }
     }
+}
+
+@Composable
+fun StreamingMessage(
+    displayedText : String
+) {
+    ChatBubbleLeft(
+        message = displayedText,
+        isFirstMessage = true,
+        onClick = {
+
+        }
+    )
 }

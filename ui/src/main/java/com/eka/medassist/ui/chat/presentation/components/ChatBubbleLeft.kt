@@ -14,7 +14,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.eka.conversation.client.models.Message
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.states.ActionType
@@ -24,7 +23,7 @@ import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
 fun ChatBubbleLeft(
-    message: Message.Text,
+    message: String,
     onClick: (CTA) -> Unit,
     showResponseButtons: Boolean = true,
     isFirstMessage: Boolean = false
@@ -61,7 +60,7 @@ fun ChatBubbleLeft(
                         MarkdownText(
                             modifier = Modifier
                                 .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                            markdown = message.text,
+                            markdown = message,
                             truncateOnTextOverflow = true,
                             enableSoftBreakAddsNewLine = true,
                             style = touchBodyRegular,
