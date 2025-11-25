@@ -56,17 +56,14 @@ fun ChatBubbleLeft(
                     bottomEnd = 16.dp
                 ),
                 content = {
-                    Column {
-                        MarkdownText(
-                            modifier = Modifier
-                                .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                            markdown = message,
-                            truncateOnTextOverflow = true,
-                            enableSoftBreakAddsNewLine = true,
-                            style = touchBodyRegular,
-                            color = DarwinTouchNeutral1000
-                        )
-                    }
+                    MarkdownText(
+                        modifier = Modifier
+                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+                        markdown = message,
+                        truncateOnTextOverflow = true,
+                        enableSoftBreakAddsNewLine = true,
+                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
+                    )
                 },
                 background = Color.Transparent
             )

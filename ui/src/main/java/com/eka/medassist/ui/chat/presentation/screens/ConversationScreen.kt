@@ -42,7 +42,7 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
     }
     val connectionState by viewModel.connectionState.collectAsState()
     val scope = rememberCoroutineScope()
-    val typewriterState = remember { TypewriterState(charDelayMs = 10L, scope = scope) }
+    val typewriterState = remember { TypewriterState(charDelayMs = 20L, scope = scope) }
     val streamingMessage by typewriterState.currentMessage
     Column(
         modifier = Modifier
