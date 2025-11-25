@@ -31,8 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.R
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
-import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral600
 import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
@@ -60,13 +60,13 @@ fun DefaultInputComponent(
             .padding(16.dp),
         shape = RoundedCornerShape(24.dp),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = DarwinTouchNeutral50,
-            unfocusedContainerColor = DarwinTouchNeutral50,
-            disabledContainerColor = DarwinTouchNeutral50,
-            disabledIndicatorColor = Color.White,
+            focusedContainerColor = DarwinTouchNeutral0,
+            unfocusedContainerColor = DarwinTouchNeutral0,
+            disabledContainerColor = DarwinTouchNeutral0,
+            disabledIndicatorColor = DarwinTouchNeutral0,
             focusedTextColor = DarwinTouchNeutral1000,
-            focusedIndicatorColor = Color.White,
-            unfocusedIndicatorColor = Color.White,
+            focusedIndicatorColor = DarwinTouchNeutral0,
+            unfocusedIndicatorColor = DarwinTouchNeutral0,
             cursorColor = DarwinTouchPrimary
         ),
         enabled = sendEnabled,
@@ -86,7 +86,7 @@ fun DefaultInputComponent(
             )
         },
         trailingIcon = {
-            if(sendEnabled == false) {
+            if(!sendEnabled) {
                 IconButton(
                     modifier = Modifier
                         .size(32.dp)
