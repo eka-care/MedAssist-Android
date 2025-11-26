@@ -58,7 +58,7 @@ fun EkaChatBotMainScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.createNewSession()
+//        viewModel.createNewSession()
         viewModel.updateTextInputState("")
         if (sessionId.isNullOrEmpty()) {
             sessionId = Utils.getNewSessionId()

@@ -9,6 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.eka.conversation.common.models.UserInfo
+import com.eka.medassist.ui.chat.client.MedAssistSDK
 import com.eka.medassist.ui.chat.presentation.screens.ConversationScreen
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.theme.MedAssistTheme
@@ -18,9 +20,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         enableEdgeToEdge()
+        MedAssistSDK.initialise(
+            context = this
+        )
         setContent {
             MedAssistTheme {
-                ConversationScreen(EkaChatViewModel(app = application))
+                ConversationScreen(
+                    userInfo = UserInfo(
+                        userId = "divyesh-test",
+                        businessId = "divyesh-test"
+                    ),
+                    EkaChatViewModel(app = application)
+                )
             }
         }
     }

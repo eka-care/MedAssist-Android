@@ -3,6 +3,7 @@ package com.eka.medassist.ui.chat.presentation.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.eka.conversation.client.models.Message
+import com.eka.conversation.common.models.UserInfo
 import com.eka.conversation.data.local.db.entities.models.MessageRole
 import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.medassist.ui.R
@@ -27,6 +29,8 @@ import com.eka.medassist.ui.chat.presentation.components.ChatBubbleProcessing
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleRight
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.ConversationInput
+import com.eka.medassist.ui.chat.presentation.components.ErrorContent
+import com.eka.medassist.ui.chat.presentation.components.ShimmerBubble
 import com.eka.medassist.ui.chat.presentation.components.SuggestionsComponent
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.states.TypewriterState
@@ -35,11 +39,14 @@ import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
 import kotlinx.coroutines.launch
 
 @Composable
-fun ConversationScreen(viewModel: EkaChatViewModel) {
+fun ConversationScreen(
+    userInfo: UserInfo,
+    viewModel: EkaChatViewModel
+) {
     val responseStream by viewModel.responseStream.collectAsState()
     val messages = viewModel.messages.collectAsState().value
     LaunchedEffect(Unit) {
-        viewModel.createNewSession()
+        viewModel.createNewSession(userInfo = userInfo)
     }
     val connectionState by viewModel.connectionState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -59,21 +66,70 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
             }
         )
 
-        ConversationContent(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 16.dp, end = 8.dp),
-            messages = messages.reversed(),
-            responseStreamMessage = responseStream,
-            typewriterState = typewriterState,
-            streamingMessage = streamingMessage,
-            isThinking = isThinking
-        )
+        when(connectionState) {
+            is SocketConnectionState.Error -> {
+                ErrorContent(
+                    error = (connectionState as? SocketConnectionState.Error)?.error ?: Throwable("Something went wrong"),
+                ) {
+                    viewModel.createNewSession(userInfo = userInfo)
+                }
+            }
+            is SocketConnectionState.Disconnected, SocketConnectionState.Disconnecting, SocketConnectionState.Connected -> {
+                ConnectedContent(
+                    messages =messages,
+                    responseStream = responseStream,
+                    typewriterState = typewriterState,
+                    streamingMessage = streamingMessage,
+                    isThinking = isThinking,
+                    viewModel = viewModel
+                )
+            }
+            else -> {
+                ShimmerContent(modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
 
-        ConversationInput(
-            viewModel = viewModel,
-            sendEnabled = viewModel.sendButtonEnabled && streamingMessage == null
-        )
+@Composable
+private fun ColumnScope.ConnectedContent(
+    messages: List<Message>,
+    responseStream: Message?,
+    typewriterState: TypewriterState,
+    streamingMessage: Message.Text?,
+    isThinking: Boolean,
+    viewModel: EkaChatViewModel
+) {
+    ConversationContent(
+        modifier = Modifier
+            .weight(1f)
+            .padding(start = 16.dp, end = 8.dp),
+        messages = messages.reversed(),
+        responseStreamMessage = responseStream,
+        typewriterState = typewriterState,
+        streamingMessage = streamingMessage,
+        isThinking = isThinking
+    )
+
+    ConversationInput(
+        viewModel = viewModel,
+        sendEnabled = viewModel.sendButtonEnabled && streamingMessage == null
+    )
+}
+
+@Composable
+private fun ShimmerContent(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        repeat(6) {
+            ShimmerBubble(isLeft = it % 2 == 0)
+        }
     }
 }
 

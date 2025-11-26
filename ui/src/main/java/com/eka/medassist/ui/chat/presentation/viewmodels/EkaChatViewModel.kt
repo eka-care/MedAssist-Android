@@ -13,13 +13,11 @@ import androidx.lifecycle.viewModelScope
 import com.eka.conversation.client.ChatInit
 import com.eka.conversation.client.interfaces.IChatSessionConfig
 import com.eka.conversation.client.interfaces.IResponseStreamHandler
-import com.eka.conversation.client.models.Environment
 import com.eka.conversation.client.models.Message
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.Utils
-import com.eka.conversation.common.models.AuthConfiguration
-import com.eka.conversation.common.models.ChatInitConfiguration
 import com.eka.conversation.common.models.SpeechToTextConfiguration
+import com.eka.conversation.common.models.UserInfo
 import com.eka.conversation.data.local.db.entities.MessageEntity
 import com.eka.conversation.data.local.db.entities.models.MessageFileType
 import com.eka.conversation.data.remote.socket.models.AudioFormat
@@ -33,8 +31,6 @@ import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.presentation.screens.BotViewMode
 import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
-import com.eka.networking.client.NetworkConfig
-import com.eka.networking.token.TokenStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -56,7 +52,8 @@ class EkaChatViewModel(
     var sessionId by mutableStateOf("")
     var sendButtonEnabled by mutableStateOf(true)
 
-    private val _inputState = MutableStateFlow<ConversationInputState>(ConversationInputState.Default)
+    private val _inputState =
+        MutableStateFlow<ConversationInputState>(ConversationInputState.Default)
     val inputState = _inputState.asStateFlow()
 
     private val _sessionMessages =
@@ -90,7 +87,8 @@ class EkaChatViewModel(
     private val _textInputState = MutableStateFlow("")
     val textInputState = _textInputState.asStateFlow()
 
-    private val _connectionState = MutableStateFlow<SocketConnectionState>(SocketConnectionState.Idle)
+    private val _connectionState =
+        MutableStateFlow<SocketConnectionState>(SocketConnectionState.Idle)
     val connectionState = _connectionState.asStateFlow()
 
     var job: Job? = null
@@ -100,97 +98,46 @@ class EkaChatViewModel(
     var isVoice2RxRecording: Boolean by mutableStateOf(false)
     var isVoiceToTextRecording: Boolean by mutableStateOf(false)
     var isQueryResponseLoading: Boolean by mutableStateOf(false)
-    private var currentSessionId : String? = null
-
-    init {
-        ChatInit.initialize(
-            context = app,
-            chatInitConfiguration = ChatInitConfiguration(
-                environment = Environment.PROD,
-                networkConfig = NetworkConfig(
-                    appId = "MedAssist",
-                    baseUrl = "https://api.eka.care",
-                    appVersionCode = 1,
-                    appVersionName = "MedAssist-Android-1",
-                    headers = emptyMap(),
-                    isDebugApp = true,
-                    tokenStorage = object : TokenStorage {
-                        override fun getAccessToken(): String {
-                            MedAssistLogger.d("EkaChatViewModel", "getAccessToken")
-                            return ""
-                        }
-
-                        override fun getRefreshToken(): String {
-                            MedAssistLogger.d("EkaChatViewModel", "getRefreshToken")
-                            return ""
-                        }
-
-                        override fun saveTokens(
-                            accessToken: String,
-                            refreshToken: String
-                        ) {
-                            MedAssistLogger.d("EkaChatViewModel", "saveTokens")
-                        }
-
-                        override fun onSessionExpired() {
-                            MedAssistLogger.d("EkaChatViewModel", "onSessionExpired")
-                        }
-                    }
-                ),
-                speechToTextConfiguration = SpeechToTextConfiguration(
-                    speechToText = object : ISpeechToText {
-                        override fun onSpeechToTextComplete(result: Result<String?>) {
-                            result.onSuccess {
-                                _currentTranscribeData.value = Response.Success(it ?: "")
-                            }.onFailure {
-                                _currentTranscribeData.value = Response.Error(it.message.toString())
-                            }
-                        }
-                    }
-                ),
-                authConfiguration = AuthConfiguration(
-                    agentId = "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI=",
-                    userId = "divyesh-test",
-                    businessId = "divyesh-test"
-                ),
-            )
-        )
-    }
+    private var currentSessionId: String? = null
 
     val messages = MutableStateFlow<List<Message>>(emptyList())
 
-    fun createNewSession() {
+    fun createNewSession(userInfo: UserInfo) {
         viewModelScope.launch {
             val lastSessionId = ChatInit.getLastSessionData()?.getOrNull()?.sessionId
-            if(!lastSessionId.isNullOrBlank()) {
-                ChatInit.startSession(sessionId = lastSessionId, chatSessionConfig = object : IChatSessionConfig {
-                    override fun onFailure(error: Exception) {
-                        startNewSession()
-                        MedAssistLogger.d(TAG, error.message.toString())
-                    }
+            if (!lastSessionId.isNullOrBlank()) {
+                ChatInit.startSession(
+                    sessionId = lastSessionId,
+                    chatSessionConfig = object : IChatSessionConfig {
+                        override fun onFailure(error: Exception) {
+                            startNewSession(userInfo = userInfo)
+                            MedAssistLogger.d(TAG, error.message.toString())
+                        }
 
-                    override fun onSuccess(
-                        sessionId: String,
-                        connectionState: StateFlow<SocketConnectionState>,
-                        sessionMessages: Response<Flow<List<Message>>>,
-                        queryEnabled: StateFlow<Boolean>
-                    ) {
-                        onSessionStartSuccess(
-                            sessionId = sessionId,
-                            connectionState = connectionState,
-                            sessionMessages = sessionMessages,
-                            queryEnabled = queryEnabled
-                        )
-                    }
-                })
+                        override fun onSuccess(
+                            sessionId: String,
+                            connectionState: StateFlow<SocketConnectionState>,
+                            sessionMessages: Response<Flow<List<Message>>>,
+                            queryEnabled: StateFlow<Boolean>
+                        ) {
+                            onSessionStartSuccess(
+                                sessionId = sessionId,
+                                connectionState = connectionState,
+                                sessionMessages = sessionMessages,
+                                queryEnabled = queryEnabled
+                            )
+                        }
+                    })
             } else {
-                startNewSession()
+                startNewSession(userInfo = userInfo)
             }
         }
     }
 
-    fun startNewSession() {
-        ChatInit.startSession(chatSessionConfig = object : IChatSessionConfig {
+    fun startNewSession(userInfo: UserInfo) {
+        ChatInit.startSession(
+            userInfo = userInfo,
+            chatSessionConfig = object : IChatSessionConfig {
             override fun onFailure(error: Exception) {
                 MedAssistLogger.d(TAG, error.message.toString())
                 // TODO handle error
@@ -240,23 +187,26 @@ class EkaChatViewModel(
     val responseStream = _responseStream.asStateFlow()
 
     fun askNewQuery(query: String) {
-        ChatInit.sendNewQuery(query = query, toolUseId = null, responseHandler = object : IResponseStreamHandler {
-            override fun onFailure(error: Exception) {
-                isQueryResponseLoading = false
-            }
+        ChatInit.sendNewQuery(
+            query = query,
+            toolUseId = null,
+            responseHandler = object : IResponseStreamHandler {
+                override fun onFailure(error: Exception) {
+                    isQueryResponseLoading = false
+                }
 
-            override fun onSuccess(responseStream: Flow<Message?>) {
-                viewModelScope.launch {
-                    isQueryResponseLoading = true
-                    responseStream.collect {
-                        if(it != null) {
-                            isQueryResponseLoading = false
+                override fun onSuccess(responseStream: Flow<Message?>) {
+                    viewModelScope.launch {
+                        isQueryResponseLoading = true
+                        responseStream.collect {
+                            if (it != null) {
+                                isQueryResponseLoading = false
+                            }
+                            _responseStream.value = it
                         }
-                        _responseStream.value = it
                     }
                 }
-            }
-        })
+            })
     }
 
     fun updateBotViewMode(newMode: BotViewMode) {
@@ -606,13 +556,25 @@ class EkaChatViewModel(
         }
         isVoiceToTextRecording = false
         try {
-            if(currentAudioFile == null) {
+            if (currentAudioFile == null) {
                 _currentTranscribeData.value = Response.Error("No audio file found")
                 return
             }
             currentAudioFile?.let { audioFile ->
                 _currentTranscribeData.value = Response.Loading()
-                ChatInit.convertAudioToText(audioFilePath = audioFile.absolutePath, audioFormat = AudioFormat.MP4)
+                ChatInit.convertAudioToText(
+                    audioFilePath = audioFile.absolutePath,
+                    audioFormat = AudioFormat.MP4,
+                    speechToTextConfiguration = SpeechToTextConfiguration(speechToText = object : ISpeechToText {
+                        override fun onSpeechToTextComplete(result: Result<String?>) {
+                            result.onSuccess {
+                                _currentTranscribeData.value = Response.Success(it ?: "")
+                            }.onFailure {
+                                _currentTranscribeData.value = Response.Error(it.message.toString())
+                            }
+                        }
+                    })
+                )
             }
 
         } catch (e: Exception) {

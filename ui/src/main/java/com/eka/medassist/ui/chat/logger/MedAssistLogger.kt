@@ -3,7 +3,12 @@ package com.eka.medassist.ui.chat.logger
 import android.util.Log
 
 object MedAssistLogger {
-    var enableDebugLogs = true
+    private var enableDebugLogs = false
+
+    fun changeLogsVisibility(debugMode : Boolean) {
+        enableDebugLogs = debugMode
+    }
+
     fun d(tag: String, msg: String) {
         if (enableDebugLogs) {
             Log.d(tag, msg)
