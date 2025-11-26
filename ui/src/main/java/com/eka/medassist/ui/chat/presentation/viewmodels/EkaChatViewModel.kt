@@ -161,27 +161,55 @@ class EkaChatViewModel(
 
     fun createNewSession() {
         viewModelScope.launch {
-            ChatInit.startSession(chatSessionConfig = object : IChatSessionConfig {
-                override fun onFailure(error: Exception) {
-                    MedAssistLogger.d(TAG, error.message.toString())
-                    // TODO handle error
-                }
+            val lastSessionId = ChatInit.getLastSessionData()?.getOrNull()?.sessionId
+            if(!lastSessionId.isNullOrBlank()) {
+                ChatInit.startSession(sessionId = lastSessionId, chatSessionConfig = object : IChatSessionConfig {
+                    override fun onFailure(error: Exception) {
+                        startNewSession()
+                        MedAssistLogger.d(TAG, error.message.toString())
+                    }
 
-                override fun onSuccess(
-                    sessionId: String,
-                    connectionState: StateFlow<SocketConnectionState>,
-                    sessionMessages: Response<Flow<List<Message>>>,
-                    queryEnabled: StateFlow<Boolean>
-                ) {
-                    onSessionStartSuccess(
-                        sessionId = sessionId,
-                        connectionState = connectionState,
-                        sessionMessages = sessionMessages,
-                        queryEnabled = queryEnabled
-                    )
-                }
-            })
+                    override fun onSuccess(
+                        sessionId: String,
+                        connectionState: StateFlow<SocketConnectionState>,
+                        sessionMessages: Response<Flow<List<Message>>>,
+                        queryEnabled: StateFlow<Boolean>
+                    ) {
+                        onSessionStartSuccess(
+                            sessionId = sessionId,
+                            connectionState = connectionState,
+                            sessionMessages = sessionMessages,
+                            queryEnabled = queryEnabled
+                        )
+                    }
+                })
+            } else {
+                startNewSession()
+            }
         }
+    }
+
+    fun startNewSession() {
+        ChatInit.startSession(chatSessionConfig = object : IChatSessionConfig {
+            override fun onFailure(error: Exception) {
+                MedAssistLogger.d(TAG, error.message.toString())
+                // TODO handle error
+            }
+
+            override fun onSuccess(
+                sessionId: String,
+                connectionState: StateFlow<SocketConnectionState>,
+                sessionMessages: Response<Flow<List<Message>>>,
+                queryEnabled: StateFlow<Boolean>
+            ) {
+                onSessionStartSuccess(
+                    sessionId = sessionId,
+                    connectionState = connectionState,
+                    sessionMessages = sessionMessages,
+                    queryEnabled = queryEnabled
+                )
+            }
+        })
     }
 
     fun onSessionStartSuccess(
