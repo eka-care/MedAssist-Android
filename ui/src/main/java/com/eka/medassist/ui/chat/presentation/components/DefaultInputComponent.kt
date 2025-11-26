@@ -39,16 +39,19 @@ import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
 @Composable
 fun DefaultInputComponent(
+    focusRequester : FocusRequester,
+    input: String,
     onSend: (String) -> Unit,
     onMicrophoneClick: () -> Unit,
     onCancel: () -> Unit,
     sendEnabled : Boolean = true,
 ) {
-    val focusRequester = remember { FocusRequester() }
     var query by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+    LaunchedEffect(input) {
+        if (isSafeInput(input)) {
+            query = input
+        }
     }
 
     TextField(

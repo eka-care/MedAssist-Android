@@ -23,6 +23,7 @@ import com.eka.conversation.data.local.db.entities.models.MessageRole
 import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleLeft
+import com.eka.medassist.ui.chat.presentation.components.ChatBubbleProcessing
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleRight
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.ConversationInput
@@ -44,6 +45,7 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
     val scope = rememberCoroutineScope()
     val typewriterState = remember { TypewriterState(charDelayMs = 20L, scope = scope) }
     val streamingMessage by typewriterState.currentMessage
+    val isThinking = viewModel.isQueryResponseLoading
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,7 +66,8 @@ fun ConversationScreen(viewModel: EkaChatViewModel) {
             messages = messages.reversed(),
             responseStreamMessage = responseStream,
             typewriterState = typewriterState,
-            streamingMessage = streamingMessage
+            streamingMessage = streamingMessage,
+            isThinking = isThinking
         )
 
         ConversationInput(
@@ -81,6 +84,7 @@ private fun ConversationContent(
     responseStreamMessage : Message?,
     typewriterState: TypewriterState,
     streamingMessage : Message.Text?,
+    isThinking : Boolean
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -121,6 +125,11 @@ private fun ConversationContent(
                 )
             }
         }
+        if(isThinking) {
+            item("thinking") {
+                ChatBubbleProcessing()
+            }
+        }
         items(displayedMessages, key = { item -> item.msgId }) { item ->
             when (item) {
                 is Message.Text -> {
@@ -142,14 +151,6 @@ private fun ConversationContent(
                             )
                         }
                     }
-//                    MarkdownText(
-//                        modifier = Modifier
-//                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-//                        markdown = item.text,
-//                        truncateOnTextOverflow = true,
-//                        enableSoftBreakAddsNewLine = true,
-//                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000),
-//                    )
                 }
 
                 is Message.SingleSelect -> {

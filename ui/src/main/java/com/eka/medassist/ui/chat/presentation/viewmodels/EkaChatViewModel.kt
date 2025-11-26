@@ -22,6 +22,7 @@ import com.eka.conversation.common.models.ChatInitConfiguration
 import com.eka.conversation.common.models.SpeechToTextConfiguration
 import com.eka.conversation.data.local.db.entities.MessageEntity
 import com.eka.conversation.data.local.db.entities.models.MessageFileType
+import com.eka.conversation.data.remote.socket.models.AudioFormat
 import com.eka.conversation.data.remote.socket.states.SocketConnectionState
 import com.eka.conversation.features.audio.AndroidAudioRecorder
 import com.eka.conversation.features.audio.ISpeechToText
@@ -99,12 +100,13 @@ class EkaChatViewModel(
     var isVoice2RxRecording: Boolean by mutableStateOf(false)
     var isVoiceToTextRecording: Boolean by mutableStateOf(false)
     var isQueryResponseLoading: Boolean by mutableStateOf(false)
+    private var currentSessionId : String? = null
 
     init {
         ChatInit.initialize(
             context = app,
             chatInitConfiguration = ChatInitConfiguration(
-                environment = Environment.DEV,
+                environment = Environment.PROD,
                 networkConfig = NetworkConfig(
                     appId = "MedAssist",
                     baseUrl = "https://api.eka.care",
@@ -137,8 +139,12 @@ class EkaChatViewModel(
                 ),
                 speechToTextConfiguration = SpeechToTextConfiguration(
                     speechToText = object : ISpeechToText {
-                        override fun onSpeechToTextComplete(text: String?) {
-                            // TODO to update input field with text
+                        override fun onSpeechToTextComplete(result: Result<String?>) {
+                            result.onSuccess {
+                                _currentTranscribeData.value = Response.Success(it ?: "")
+                            }.onFailure {
+                                _currentTranscribeData.value = Response.Error(it.message.toString())
+                            }
                         }
                     }
                 ),
@@ -184,6 +190,7 @@ class EkaChatViewModel(
         sessionMessages: Response<Flow<List<Message>>>,
         queryEnabled: StateFlow<Boolean>
     ) {
+        updateSessionId(session = sessionId)
         viewModelScope.launch {
             sessionMessages.data?.collect {
                 messages.value = it
@@ -207,12 +214,16 @@ class EkaChatViewModel(
     fun askNewQuery(query: String) {
         ChatInit.sendNewQuery(query = query, toolUseId = null, responseHandler = object : IResponseStreamHandler {
             override fun onFailure(error: Exception) {
-                // TODO handle error
+                isQueryResponseLoading = false
             }
 
             override fun onSuccess(responseStream: Flow<Message?>) {
                 viewModelScope.launch {
+                    isQueryResponseLoading = true
                     responseStream.collect {
+                        if(it != null) {
+                            isQueryResponseLoading = false
+                        }
                         _responseStream.value = it
                     }
                 }
@@ -234,7 +245,7 @@ class EkaChatViewModel(
     }
 
     fun updateSessionId(session: String) {
-        sessionId = session
+        currentSessionId = session
         clearSessionMessages()
     }
 
@@ -551,11 +562,13 @@ class EkaChatViewModel(
     }
 
     fun startAudioRecording(onError: (String) -> Unit) {
+        clearRecording()
         if (::audioRecorder.isInitialized) {
             audioRecorder.stopRecording()
         }
+        isVoiceToTextRecording = true
         audioRecorder = AndroidAudioRecorder(app)
-        currentAudioFile = File(app.filesDir, "${Utils.getNewFileName(MessageFileType.AUDIO)}.m4a")
+        currentAudioFile = File(app.filesDir, "${Utils.getNewFileName(MessageFileType.AUDIO)}.mp4")
         audioRecorder.startRecording(currentAudioFile!!, onError = onError)
     }
 
@@ -563,11 +576,17 @@ class EkaChatViewModel(
         if (::audioRecorder.isInitialized) {
             audioRecorder.stopRecording()
         }
+        isVoiceToTextRecording = false
         try {
-//            getTranscribeDataFromAudioFile(currentAudioFile!!) { response ->
-//                OrbiLogger.d("stopRecording", "Transcribe Data: ${response.data}")
-//                _currentTranscribeData.value = response
-//            }
+            if(currentAudioFile == null) {
+                _currentTranscribeData.value = Response.Error("No audio file found")
+                return
+            }
+            currentAudioFile?.let { audioFile ->
+                _currentTranscribeData.value = Response.Loading()
+                ChatInit.convertAudioToText(audioFilePath = audioFile.absolutePath, audioFormat = AudioFormat.MP4)
+            }
+
         } catch (e: Exception) {
             Log.e("stopRecording", "Error: ${e.message}")
             _currentTranscribeData.value = Response.Error(e.message)
