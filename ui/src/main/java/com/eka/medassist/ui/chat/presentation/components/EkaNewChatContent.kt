@@ -95,7 +95,7 @@ fun EkaNewChatContent(
                 }
                 itemsIndexed(
                     items = sessionMessages.messageEntityResp,
-                    key = { _, chatMessage -> chatMessage.message.msgId }) { index, chatMessage ->
+                    key = { _, chatMessage -> chatMessage.message.messageId }) { index, chatMessage ->
 
                     val message = chatMessage.message
 
@@ -158,7 +158,7 @@ fun ChatMessageComponent(
         }
 
         MessageRole.AI -> {
-            when (message.msgType) {
+            when (message.messageType) {
                 else -> {
 //                    ChatBubbleLeft(
 //                        message = chatMessage,
@@ -201,7 +201,7 @@ fun shouldShowResponseButtons(
 }
 
 fun isLastMessage(messages: List<ChatMessage>, message: ChatMessage): Boolean {
-    return messages.first().message.msgId == message.message.msgId
+    return messages.first().message.messageId == message.message.messageId
 }
 
 fun handleMessageCTA(
@@ -216,8 +216,8 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "copy")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.msgContent)
-            clipboardManager.setText(AnnotatedString(chatMessage.message.msgContent))
+            params.put("text", chatMessage.message.messageContent)
+            clipboardManager.setText(AnnotatedString(chatMessage.message.messageContent))
             viewModel.showToast("Copied to Clipboard.")
         }
 
@@ -225,9 +225,9 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "sharepdf")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.msgContent)
+            params.put("text", chatMessage.message.messageContent)
             viewModel.generatePdf(
-                data = chatMessage.message.msgContent,
+                data = chatMessage.message.messageContent,
                 context = context
             )
         }
@@ -236,7 +236,7 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "good")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.msgContent)
+            params.put("text", chatMessage.message.messageContent)
             viewModel.showToast("Review Submitted.")
         }
 
@@ -244,7 +244,7 @@ fun handleMessageCTA(
             val params = JSONObject()
             params.put("type", "bad")
             params.put("session_id", chatMessage.message.sessionId)
-            params.put("text", chatMessage.message.msgContent)
+            params.put("text", chatMessage.message.messageContent)
             viewModel.showToast("Review Submitted.")
         }
     }

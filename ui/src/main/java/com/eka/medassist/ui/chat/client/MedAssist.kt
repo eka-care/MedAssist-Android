@@ -1,10 +1,10 @@
 package com.eka.medassist.ui.chat.client
 
 import android.content.Context
-import com.eka.conversation.client.ChatInit
+import com.eka.conversation.client.ChatSDK
 import com.eka.conversation.client.models.Environment
 import com.eka.conversation.common.models.AuthConfiguration
-import com.eka.conversation.common.models.ChatInitConfiguration
+import com.eka.conversation.common.models.ChatConfiguration
 import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.utility.MedAssistConstants
 import com.eka.networking.client.NetworkConfig
@@ -15,13 +15,14 @@ object MedAssistSDK {
     fun initialise(
         agentId : String = "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI=",
         debugMode : Boolean = false,
+        environment: Environment,
         context: Context
     ) {
         MedAssistLogger.changeLogsVisibility(debugMode = debugMode)
-        ChatInit.initialize(
+        ChatSDK.initialize(
             context = context,
-            chatInitConfiguration = ChatInitConfiguration(
-                environment = Environment.PROD,
+            chatConfiguration = ChatConfiguration(
+                environment = environment,
                 networkConfig = NetworkConfig(
                     appId = MedAssistConstants.APP_ID,
                     baseUrl = MedAssistConstants.BASE_URL,

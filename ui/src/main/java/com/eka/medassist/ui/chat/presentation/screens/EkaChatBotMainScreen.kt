@@ -19,7 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import com.eka.conversation.common.Utils
+import com.eka.conversation.common.IdGenerator
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.navigation.ChatScreenNavModel
 import com.eka.medassist.ui.chat.presentation.components.BottomBarMainScreen
@@ -61,7 +61,7 @@ fun EkaChatBotMainScreen(
 //        viewModel.createNewSession()
         viewModel.updateTextInputState("")
         if (sessionId.isNullOrEmpty()) {
-            sessionId = Utils.getNewSessionId()
+            sessionId = IdGenerator.generateSessionId()
             viewModel.updateSessionId(sessionId.toString())
             // TODO Get Session Messages
 //            viewModel.getSessionMessages(sessionId.toString())
@@ -76,9 +76,9 @@ fun EkaChatBotMainScreen(
         if (sessionMessages.messageEntityResp.isEmpty()) {
             screenTitle = context.getString(R.string.new_chat)
         } else {
-            screenTitle = when (sessionMessages.messageEntityResp.lastOrNull()?.message?.msgType) {
+            screenTitle = when (sessionMessages.messageEntityResp.lastOrNull()?.message?.messageType) {
                 com.eka.conversation.data.local.db.entities.models.MessageType.TEXT -> {
-                    sessionMessages.messageEntityResp.lastOrNull()?.message?.msgContent
+                    sessionMessages.messageEntityResp.lastOrNull()?.message?.messageContent
                         ?: "Conversation"
                 }
 

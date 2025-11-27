@@ -46,8 +46,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import com.eka.conversation.common.PermissionUtils
-import com.eka.conversation.common.Utils
+import com.eka.conversation.common.NetworkChecker
+import com.eka.conversation.common.PermissionChecker
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.states.ActionType
@@ -187,11 +187,11 @@ fun EkaChatInputBottom(
                             viewModel.showToast("Recording is going on!")
                             return@IconButton
                         }
-                        if (!Utils.isNetworkAvailable(context)) {
+                        if (!NetworkChecker.isNetworkAvailable(context)) {
                             viewModel.showToast("Internet not available.")
                             return@IconButton
                         }
-                        if (PermissionUtils.hasRecordAudioPermission(context)) {
+                        if (PermissionChecker.hasRecordAudioPermission(context)) {
                             val params = JSONObject()
                             params.put("type", "voicetx")
                             onMicrophoneClick()
@@ -227,7 +227,7 @@ fun EkaChatInputBottom(
                     IconButton(
                         onClick = {
                             if (buttonEnabled) {
-                                if (!Utils.isNetworkAvailable(context)) {
+                                if (!NetworkChecker.isNetworkAvailable(context)) {
                                     viewModel.showToast("No Internet")
                                 } else {
                                     val params = JSONObject()

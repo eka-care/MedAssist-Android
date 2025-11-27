@@ -10,12 +10,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.eka.conversation.client.ChatInit
-import com.eka.conversation.client.interfaces.IChatSessionConfig
-import com.eka.conversation.client.interfaces.IResponseStreamHandler
+import com.eka.conversation.client.ChatSDK
+import com.eka.conversation.client.interfaces.ResponseStreamCallback
+import com.eka.conversation.client.interfaces.SessionCallback
 import com.eka.conversation.client.models.Message
+import com.eka.conversation.common.FileNameGenerator
 import com.eka.conversation.common.Response
-import com.eka.conversation.common.Utils
 import com.eka.conversation.common.models.SpeechToTextConfiguration
 import com.eka.conversation.common.models.UserInfo
 import com.eka.conversation.data.local.db.entities.MessageEntity
@@ -104,11 +104,11 @@ class EkaChatViewModel(
 
     fun createNewSession(userInfo: UserInfo) {
         viewModelScope.launch {
-            val lastSessionId = ChatInit.getLastSessionData()?.getOrNull()?.sessionId
+            val lastSessionId = ChatSDK.getLastSession(userInfo)?.getOrNull()?.sessionId
             if (!lastSessionId.isNullOrBlank()) {
-                ChatInit.startSession(
+                ChatSDK.startSession(
                     sessionId = lastSessionId,
-                    chatSessionConfig = object : IChatSessionConfig {
+                    callback = object : SessionCallback {
                         override fun onFailure(error: Exception) {
                             startNewSession(userInfo = userInfo)
                             MedAssistLogger.d(TAG, error.message.toString())
@@ -135,9 +135,9 @@ class EkaChatViewModel(
     }
 
     fun startNewSession(userInfo: UserInfo) {
-        ChatInit.startSession(
+        ChatSDK.startSession(
             userInfo = userInfo,
-            chatSessionConfig = object : IChatSessionConfig {
+            callback = object : SessionCallback {
             override fun onFailure(error: Exception) {
                 MedAssistLogger.d(TAG, error.message.toString())
                 // TODO handle error
@@ -187,10 +187,10 @@ class EkaChatViewModel(
     val responseStream = _responseStream.asStateFlow()
 
     fun askNewQuery(query: String) {
-        ChatInit.sendNewQuery(
+        ChatSDK.sendQuery(
             query = query,
             toolUseId = null,
-            responseHandler = object : IResponseStreamHandler {
+            callback = object : ResponseStreamCallback {
                 override fun onFailure(error: Exception) {
                     isQueryResponseLoading = false
                 }
@@ -240,7 +240,7 @@ class EkaChatViewModel(
 //            return
 //        }
 //        viewModelScope.launch {
-//            val response = ChatInit.getSearchResult(query = searchQuery, ownerId = ownerId)
+//            val response = ChatSDK.getSearchResult(query = searchQuery, ownerId = ownerId)
 //            response?.collect { messages ->
 //
 //            }
@@ -265,9 +265,9 @@ class EkaChatViewModel(
 //        viewModelScope.launch {
 //            var response: Response<List<MessageEntity>>? = null
 //            if (chatContext.isNullOrEmpty()) {
-//                response = ChatInit.getAllSessions(ChatUtils.getOwnerId())
+//                response = ChatSDK.getAllSessions(ChatUtils.getOwnerId())
 //            } else {
-//                response = ChatInit.getAllSessionByChatContext(chatContext = chatContext)
+//                response = ChatSDK.getAllSessionByChatContext(chatContext = chatContext)
 //            }
 //            when (response) {
 //                is Response.Loading -> {
@@ -297,7 +297,7 @@ class EkaChatViewModel(
 //            messages.forEach { message ->
 //                deferredMessages.add(
 //                    viewModelScope.async {
-//                        val chatMessages = ChatInit.getMessagesBySessionId(message.sessionId)
+//                        val chatMessages = ChatSDK.getMessagesBySessionId(message.sessionId)
 //                        var totalRecords = 0
 //                        var totalConv = 0
 //                        chatMessages?.data?.firstOrNull()?.forEach {
@@ -364,7 +364,7 @@ class EkaChatViewModel(
 //            job = null
 //        }
 //        job = viewModelScope.launch {
-//            val response = ChatInit.getMessagesBySessionId(sessionId = sessionId)
+//            val response = ChatSDK.getMessagesBySessionId(sessionId = sessionId)
 //            if (response != null) {
 //                when (response) {
 //                    is Response.Loading -> {
@@ -497,7 +497,7 @@ class EkaChatViewModel(
 //            role = MessageRole.CUSTOM,
 //        )
 //        viewModelScope.launch {
-//            ChatInit.insertMessages(listOf(message, messageResponse))
+//            ChatSDK.insertMessages(listOf(message, messageResponse))
 //            docAssistFireStoreManager.askNewQuery(
 //                app,
 //                messageEntity = message,
@@ -546,7 +546,7 @@ class EkaChatViewModel(
         }
         isVoiceToTextRecording = true
         audioRecorder = AndroidAudioRecorder(app)
-        currentAudioFile = File(app.filesDir, "${Utils.getNewFileName(MessageFileType.AUDIO)}.mp4")
+        currentAudioFile = File(app.filesDir, "${FileNameGenerator.generateFileName(MessageFileType.AUDIO)}.mp4")
         audioRecorder.startRecording(currentAudioFile!!, onError = onError)
     }
 
@@ -562,7 +562,7 @@ class EkaChatViewModel(
             }
             currentAudioFile?.let { audioFile ->
                 _currentTranscribeData.value = Response.Loading()
-                ChatInit.convertAudioToText(
+                ChatSDK.convertAudioToText(
                     audioFilePath = audioFile.absolutePath,
                     audioFormat = AudioFormat.MP4,
                     speechToTextConfiguration = SpeechToTextConfiguration(speechToText = object : ISpeechToText {
