@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("maven-publish")
 }
 
 android {
@@ -37,6 +38,24 @@ android {
     }
 }
 
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+
+                groupId = "com.eka"
+                artifactId = "medassist"
+                version = "1.0.0"
+            }
+        }
+    }
+    tasks.named("publishReleasePublicationToMavenLocal") {
+        dependsOn(tasks.named("bundleReleaseAar"))
+    }
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -49,7 +68,6 @@ dependencies {
     implementation(libs.compose.shimmer)
     implementation(libs.coil.compose)
     implementation(libs.google.gson)
-    implementation(libs.lottie.compose)
     implementation(libs.androidx.fonts)
     implementation(libs.compose.markdown)
     api(libs.ai.chat)

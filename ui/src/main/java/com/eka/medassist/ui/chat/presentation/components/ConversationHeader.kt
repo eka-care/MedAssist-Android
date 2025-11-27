@@ -8,10 +8,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.R
-import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
 import com.eka.medassist.ui.chat.presentation.common.organism.AppBar
-import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.theme.Blue50
 import com.eka.medassist.ui.chat.theme.FuchsiaViolet100
 
@@ -20,7 +18,7 @@ import com.eka.medassist.ui.chat.theme.FuchsiaViolet100
 fun ConversationHeader(
     title: String,
     subTitle: String? = null,
-    onClick: (CTA) -> Unit
+    onBackClick : () -> Unit,
 ) {
     AppBar(
         borderColor = Color.Transparent,
@@ -37,7 +35,7 @@ fun ConversationHeader(
         subTitle = subTitle,
         navigationIcon = {
             IconButtonWrapper(
-                onClick = { onClick(CTA(action = ActionType.ON_BACK.stringValue)) },
+                onClick = onBackClick,
                 icon = R.drawable.ic_arrow_left_regular,
                 iconSize = 16.dp
             )

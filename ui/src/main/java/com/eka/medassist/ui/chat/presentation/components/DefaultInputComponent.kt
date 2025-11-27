@@ -39,12 +39,12 @@ import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
 @Composable
 fun DefaultInputComponent(
-    focusRequester : FocusRequester,
+    focusRequester: FocusRequester,
     input: String,
     onSend: (String) -> Unit,
     onMicrophoneClick: () -> Unit,
     onCancel: () -> Unit,
-    sendEnabled : Boolean = true,
+    sendEnabled: Boolean = true,
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -89,7 +89,7 @@ fun DefaultInputComponent(
             )
         },
         trailingIcon = {
-            if(!sendEnabled) {
+            if (!sendEnabled) {
                 IconButton(
                     modifier = Modifier
                         .size(32.dp)
@@ -128,7 +128,11 @@ fun DefaultInputComponent(
 }
 
 @Composable
-private fun InputIcon(modifier: Modifier = Modifier, icon: Int, onClick: () -> Unit) {
+private fun InputIcon(
+    modifier: Modifier = Modifier,
+    icon: Int,
+    onClick: () -> Unit
+) {
     IconButton(
         modifier = modifier
             .size(32.dp)
@@ -142,7 +146,7 @@ private fun InputIcon(modifier: Modifier = Modifier, icon: Int, onClick: () -> U
                 tint = Color.White
             )
         },
-        onClick = onClick
+        onClick = onClick,
     )
 }
 

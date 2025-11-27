@@ -32,7 +32,9 @@ class MainActivity : ComponentActivity() {
                         userId = "divyesh-test_2",
                         businessId = "divyesh-test_2"
                     ),
-                    EkaChatViewModel(app = application)
+                    EkaChatViewModel(app = application),
+                    onBackClick = {},
+                    askMicrophonePermission = {}
                 )
             }
         }

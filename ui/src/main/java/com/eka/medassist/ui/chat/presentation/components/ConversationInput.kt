@@ -12,14 +12,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalContext
+import com.eka.conversation.common.PermissionChecker
 import com.eka.conversation.common.Response
 import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 
 @Composable
-fun ConversationInput(viewModel: EkaChatViewModel, sendEnabled : Boolean) {
+fun ConversationInput(
+    viewModel: EkaChatViewModel,
+    sendEnabled: Boolean,
+    askMicrophonePermission : () -> Unit,
+) {
     val state = viewModel.inputState.collectAsState().value
     val focusRequester = remember { FocusRequester() }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -41,7 +48,15 @@ fun ConversationInput(viewModel: EkaChatViewModel, sendEnabled : Boolean) {
                         viewModel.askNewQuery(query = query)
                     },
                     onMicrophoneClick = {
-                        viewModel.setInputState(ConversationInputState.Audio)
+                        if(!viewModel.sendButtonEnabled) {
+                            viewModel.showToast("Mic Disabled!")
+                            return@DefaultInputComponent
+                        }
+                        if(PermissionChecker.hasRecordAudioPermission(context = context)) {
+                            viewModel.setInputState(ConversationInputState.Audio)
+                        } else {
+                            askMicrophonePermission()
+                        }
                     },
                     onCancel = {
 

@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.eka.conversation.common.NetworkChecker
 import com.eka.conversation.common.PermissionChecker
-import com.eka.conversation.common.Response
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
@@ -131,26 +130,26 @@ fun BottomBarMainScreen(
             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
             exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
         ) {
-            AudioFeatureLayout(viewModel = viewModel) { response ->
-                viewModel.isVoiceToTextRecording = false
-                when (response) {
-                    is Response.Loading -> {
-                    }
-
-                    is Response.Success -> {
-                        val transcribedText = response.data.toString()
-                        viewModel.updateTextInputState(transcribedText)
-                        viewModel.clearRecording()
-                        focusRequester.requestFocus()
-                    }
-
-                    is Response.Error -> {
-                        val errorMsg = response.message.toString()
-                        viewModel.showToast(errorMsg)
-                        viewModel.clearRecording()
-                    }
-                }
-            }
+//            AudioFeatureLayout(viewModel = viewModel) { response ->
+//                viewModel.isVoiceToTextRecording = false
+//                when (response) {
+//                    is Response.Loading -> {
+//                    }
+//
+//                    is Response.Success -> {
+//                        val transcribedText = response.data.toString()
+//                        viewModel.updateTextInputState(transcribedText)
+//                        viewModel.clearRecording()
+//                        focusRequester.requestFocus()
+//                    }
+//
+//                    is Response.Error -> {
+//                        val errorMsg = response.message.toString()
+//                        viewModel.showToast(errorMsg)
+//                        viewModel.clearRecording()
+//                    }
+//                }
+//            }
         }
     }
 }

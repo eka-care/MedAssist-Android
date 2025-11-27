@@ -3,7 +3,6 @@ package com.eka.medassist.ui.chat.presentation.viewmodels
 import android.app.Application
 import android.content.Context
 import android.media.MediaPlayer
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +37,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import com.eka.medassist.ui.chat.common.Response as EkaResponse
 
 class EkaChatViewModel(
@@ -50,7 +53,7 @@ class EkaChatViewModel(
     }
 
     var sessionId by mutableStateOf("")
-    var sendButtonEnabled by mutableStateOf(true)
+    var sendButtonEnabled by mutableStateOf(false)
 
     private val _inputState =
         MutableStateFlow<ConversationInputState>(ConversationInputState.Default)
@@ -165,6 +168,7 @@ class EkaChatViewModel(
         sessionMessages: Response<Flow<List<Message>>>,
         queryEnabled: StateFlow<Boolean>
     ) {
+        sendButtonEnabled = true
         updateSessionId(session = sessionId)
         viewModelScope.launch {
             sessionMessages.data?.collect {
@@ -555,30 +559,54 @@ class EkaChatViewModel(
             audioRecorder.stopRecording()
         }
         isVoiceToTextRecording = false
+        if(!sendButtonEnabled) return
         try {
             if (currentAudioFile == null) {
+                sendButtonEnabled = true
                 _currentTranscribeData.value = Response.Error("No audio file found")
                 return
             }
+
             currentAudioFile?.let { audioFile ->
                 _currentTranscribeData.value = Response.Loading()
-                ChatSDK.convertAudioToText(
-                    audioFilePath = audioFile.absolutePath,
-                    audioFormat = AudioFormat.MP4,
-                    speechToTextConfiguration = SpeechToTextConfiguration(speechToText = object : ISpeechToText {
-                        override fun onSpeechToTextComplete(result: Result<String?>) {
-                            result.onSuccess {
-                                _currentTranscribeData.value = Response.Success(it ?: "")
-                            }.onFailure {
-                                _currentTranscribeData.value = Response.Error(it.message.toString())
-                            }
+
+                viewModelScope.launch {
+                    val result = withTimeoutOrNull(15_000L) {
+                        suspendCancellableCoroutine { continuation ->
+                            ChatSDK.convertAudioToText(
+                                audioFilePath = audioFile.absolutePath,
+                                audioFormat = AudioFormat.MP4,
+                                speechToTextConfiguration = SpeechToTextConfiguration(
+                                    speechToText = object : ISpeechToText {
+                                        override fun onSpeechToTextComplete(result: Result<String?>) {
+                                            if (continuation.isActive) {
+                                                result.onSuccess {
+                                                    continuation.resume(it)
+                                                }.onFailure {
+                                                    continuation.resumeWithException(it)
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
+                            )
                         }
-                    })
-                )
+                    }
+                    sendButtonEnabled = true
+                    when {
+                        result.isNullOrBlank() -> {
+                            _currentTranscribeData.value = Response.Error("Something went wrong!")
+                        }
+                        else -> {
+                            _currentTranscribeData.value = Response.Success(result)
+                        }
+                    }
+                }
             }
 
         } catch (e: Exception) {
-            Log.e("stopRecording", "Error: ${e.message}")
+            sendButtonEnabled = true
+            MedAssistLogger.e("stopRecording", "Error: ${e.message}")
             _currentTranscribeData.value = Response.Error(e.message)
         }
     }

@@ -18,12 +18,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import com.eka.conversation.common.IdGenerator
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.navigation.ChatScreenNavModel
 import com.eka.medassist.ui.chat.presentation.components.BottomBarMainScreen
-import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.EkaNewChatContent
 import com.eka.medassist.ui.chat.presentation.components.MicrophonePermissionAlertDialog
 import com.eka.medassist.ui.chat.presentation.states.ActionType
@@ -137,17 +135,17 @@ fun EkaChatBotMainScreen(
             .fillMaxSize()
             .imePadding(),
         topBar = {
-            ConversationHeader(
-                title = screenTitle.ifEmpty { stringResource(id = R.string.new_chat) },
-                subTitle = "ParrotLet 1.0",
-                onClick = { cta ->
-                    when (cta.action) {
-                        ActionType.ON_BACK.stringValue -> {
-                            onBackClick()
-                        }
-                    }
-                }
-            )
+//            ConversationHeader(
+//                title = screenTitle.ifEmpty { stringResource(id = R.string.new_chat) },
+//                subTitle = "ParrotLet 1.0",
+//                onClick = { cta ->
+//                    when (cta.action) {
+//                        ActionType.ON_BACK.stringValue -> {
+//                            onBackClick()
+//                        }
+//                    }
+//                }
+//            )
         },
         bottomBar = {
             BottomBarMainScreen(

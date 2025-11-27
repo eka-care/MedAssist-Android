@@ -41,7 +41,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun ConversationScreen(
     userInfo: UserInfo,
-    viewModel: EkaChatViewModel
+    viewModel: EkaChatViewModel,
+    onBackClick : () -> Unit,
+    askMicrophonePermission : () -> Unit
 ) {
     val responseStream by viewModel.responseStream.collectAsState()
     val messages = viewModel.messages.collectAsState().value
@@ -61,9 +63,7 @@ fun ConversationScreen(
         ConversationHeader(
             title = stringResource(id = R.string.new_chat),
             subTitle = getConnectionState(state = connectionState),
-            onClick = {
-
-            }
+            onBackClick = onBackClick
         )
 
         when(connectionState) {
@@ -76,12 +76,13 @@ fun ConversationScreen(
             }
             is SocketConnectionState.Disconnected, SocketConnectionState.Disconnecting, SocketConnectionState.Connected -> {
                 ConnectedContent(
-                    messages =messages,
+                    messages = messages,
                     responseStream = responseStream,
                     typewriterState = typewriterState,
                     streamingMessage = streamingMessage,
                     isThinking = isThinking,
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    askMicrophonePermission = askMicrophonePermission
                 )
             }
             else -> {
@@ -98,7 +99,8 @@ private fun ColumnScope.ConnectedContent(
     typewriterState: TypewriterState,
     streamingMessage: Message.Text?,
     isThinking: Boolean,
-    viewModel: EkaChatViewModel
+    viewModel: EkaChatViewModel,
+    askMicrophonePermission: () -> Unit
 ) {
     ConversationContent(
         modifier = Modifier
@@ -113,7 +115,8 @@ private fun ColumnScope.ConnectedContent(
 
     ConversationInput(
         viewModel = viewModel,
-        sendEnabled = viewModel.sendButtonEnabled && streamingMessage == null
+        sendEnabled = viewModel.sendButtonEnabled && streamingMessage == null,
+        askMicrophonePermission = askMicrophonePermission
     )
 }
 
