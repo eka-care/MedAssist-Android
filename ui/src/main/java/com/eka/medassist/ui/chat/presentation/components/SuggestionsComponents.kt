@@ -1,15 +1,11 @@
 package com.eka.medassist.ui.chat.presentation.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -18,13 +14,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
-import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
-import com.eka.medassist.ui.chat.theme.touchBodyRegular
+import com.eka.medassist.ui.chat.presentation.states.SuggestionType
 
 @Composable
 fun SuggestionsComponent(
     onSuggestionClicked: (SuggestionModel) -> Unit,
     suggestionList : List<SuggestionModel>,
+    suggestionType: SuggestionType,
     showLeftIcon: Boolean,
 ) {
     val iconAlpha = if (showLeftIcon) 1f else 0f
@@ -53,23 +49,15 @@ fun SuggestionsComponent(
                 bottomEnd = 16.dp
             ),
             content = {
-                Column(
-                    modifier = Modifier
-                        .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
-                ) {
-                    Text(
-                        modifier = Modifier,
-                        text = "Suggested questions you can ask me-",
-                        style = touchBodyRegular,
-                        color = DarwinTouchNeutral1000
+                when(suggestionType) {
+                    SuggestionType.SINGLE_SELECT -> SingleSelectSuggestion(
+                        suggestionList = suggestionList,
+                        onSuggestionClicked = onSuggestionClicked
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    suggestionList.forEach { suggestion ->
-                        Suggestion(suggestion = suggestion) {
-                            onSuggestionClicked(suggestion)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                    SuggestionType.MULTI_SELECT -> MultiSelectSuggestions(
+                        suggestionList = suggestionList,
+                        onConfirm = onSuggestionClicked
+                    )
                 }
             },
             background = Color.Transparent

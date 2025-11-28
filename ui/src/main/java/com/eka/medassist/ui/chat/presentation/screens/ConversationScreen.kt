@@ -33,6 +33,7 @@ import com.eka.medassist.ui.chat.presentation.components.ErrorContent
 import com.eka.medassist.ui.chat.presentation.components.ShimmerBubble
 import com.eka.medassist.ui.chat.presentation.components.SuggestionsComponent
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
+import com.eka.medassist.ui.chat.presentation.states.SuggestionType
 import com.eka.medassist.ui.chat.presentation.states.TypewriterState
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral50
@@ -97,7 +98,7 @@ private fun ColumnScope.ConnectedContent(
     messages: List<Message>,
     responseStream: Message?,
     typewriterState: TypewriterState,
-    streamingMessage: Message.Text?,
+    streamingMessage: Message?,
     isThinking: Boolean,
     viewModel: EkaChatViewModel,
     askMicrophonePermission: () -> Unit
@@ -110,7 +111,9 @@ private fun ColumnScope.ConnectedContent(
         responseStreamMessage = responseStream,
         typewriterState = typewriterState,
         streamingMessage = streamingMessage,
-        isThinking = isThinking
+        isThinking = isThinking,
+        viewModel = viewModel,
+        sendEnabled = viewModel.sendButtonEnabled && streamingMessage == null,
     )
 
     ConversationInput(
@@ -142,8 +145,10 @@ private fun ConversationContent(
     messages: List<Message> = emptyList(),
     responseStreamMessage : Message?,
     typewriterState: TypewriterState,
-    streamingMessage : Message.Text?,
-    isThinking : Boolean
+    streamingMessage : Message?,
+    isThinking : Boolean,
+    viewModel: EkaChatViewModel,
+    sendEnabled : Boolean,
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -153,7 +158,7 @@ private fun ConversationContent(
     LaunchedEffect(responseStreamMessage) {
         if(responseStreamMessage == null) {
             typewriterState.complete()
-        } else if(responseStreamMessage is Message.Text) {
+        } else {
             typewriterState.updateFullMessage(fullMessage = responseStreamMessage)
         }
     }
@@ -204,6 +209,7 @@ private fun ConversationContent(
                             ChatBubbleLeft(
                                 message = item.text,
                                 isFirstMessage = true,
+                                showResponseButtons = isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item),
                                 onClick = {
 
                                 }
@@ -213,27 +219,61 @@ private fun ConversationContent(
                 }
 
                 is Message.SingleSelect -> {
-                    SuggestionsComponent(
-                        showLeftIcon = true,
-                        suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
-                        onSuggestionClicked = {
-                            // TODO Suggestion click
-                        }
-                    )
+                    if(isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item)) {
+                        SuggestionsComponent(
+                            showLeftIcon = true,
+                            suggestionType = SuggestionType.SINGLE_SELECT,
+                            suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
+                            onSuggestionClicked = {
+                                viewModel.askNewQuery(toolUseId = item.toolUseId, query = it.label)
+                            }
+                        )
+                    }
+                    if(item.text.isNotBlank()) {
+                        ChatBubbleLeft(
+                            message = item.text,
+                            isFirstMessage = true,
+                            showResponseButtons = isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item),
+                            onClick = {
+
+                            }
+                        )
+                    }
                 }
 
                 is Message.MultiSelect -> {
-                    SuggestionsComponent(
-                        showLeftIcon = true,
-                        suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
-                        onSuggestionClicked = {
-                            // TODO Suggestion click
-                        }
-                    )
+                    if(isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item)) {
+                        SuggestionsComponent(
+                            showLeftIcon = true,
+                            suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
+                            suggestionType = SuggestionType.MULTI_SELECT,
+                            onSuggestionClicked = {
+                                viewModel.askNewQuery(toolUseId = item.toolUseId, query = it.label)
+                            }
+                        )
+                    }
+                    if(item.text.isNotBlank()) {
+                        ChatBubbleLeft(
+                            message = item.text,
+                            isFirstMessage = true,
+                            showResponseButtons = isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item),
+                            onClick = {
+
+                            }
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+fun isLastMessage(
+    sendEnabled : Boolean,
+    messages : List<Message>,
+    message : Message
+): Boolean {
+    return sendEnabled && messages.first().msgId == message.msgId
 }
 
 fun getConnectionState(state: SocketConnectionState): String {

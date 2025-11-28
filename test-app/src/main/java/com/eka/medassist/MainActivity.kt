@@ -23,7 +23,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         MedAssistSDK.initialise(
             context = this,
-            environment = Environment.PROD
+            environment = Environment.PROD,
+            agentId = "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI="
         )
         setContent {
             MedAssistTheme {

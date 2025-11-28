@@ -13,7 +13,7 @@ import com.eka.networking.token.TokenStorage
 object MedAssistSDK {
     const val TAG = "MedAssistSDK"
     fun initialise(
-        agentId : String = "NDBkNmM4OTEtNGEzMC00MDBlLWE4NjEtN2ZkYjliMDY2MDZhI2VrYV9waHI=",
+        agentId : String,
         debugMode : Boolean = false,
         environment: Environment,
         context: Context

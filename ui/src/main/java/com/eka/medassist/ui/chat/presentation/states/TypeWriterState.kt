@@ -21,7 +21,7 @@ class TypewriterState(
     private val _displayedMessage = MutableStateFlow("")
     val displayedMessage: StateFlow<String> = _displayedMessage.asStateFlow()
 
-    val currentMessage = mutableStateOf<Message.Text?>(null)
+    val currentMessage = mutableStateOf<Message?>(null)
 
     private var targetText = ""
     private var emitJob: Job? = null
@@ -29,16 +29,21 @@ class TypewriterState(
     private var jobCompleted : Boolean = false
 
     fun updateFullMessage(fullMessage : Message?) {
-        val newMessage = fullMessage as? Message.Text
-        if(newMessage == null) {
+        val newText = when(fullMessage) {
+            is Message.Text -> fullMessage.text
+            is Message.SingleSelect -> fullMessage.text
+            is Message.MultiSelect -> fullMessage.text
+            else -> ""
+        }
+        if(newText.isBlank()) {
             return
         }
         // Only process if there's actually new content
-        if (newMessage.text.length <= targetText.length) return
+        if (newText.length <= targetText.length) return
 
         currentMessage.value = fullMessage
 
-        targetText = newMessage.text
+        targetText = newText
 
         // Start emitting if not already running
         if (emitJob?.isActive != true) {

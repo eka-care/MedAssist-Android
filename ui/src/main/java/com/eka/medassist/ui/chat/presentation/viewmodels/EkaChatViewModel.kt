@@ -190,10 +190,10 @@ class EkaChatViewModel(
     private val _responseStream = MutableStateFlow<Message?>(null)
     val responseStream = _responseStream.asStateFlow()
 
-    fun askNewQuery(query: String) {
+    fun askNewQuery(query: String, toolUseId : String? = null) {
         ChatSDK.sendQuery(
             query = query,
-            toolUseId = null,
+            toolUseId = toolUseId,
             callback = object : ResponseStreamCallback {
                 override fun onFailure(error: Exception) {
                     isQueryResponseLoading = false

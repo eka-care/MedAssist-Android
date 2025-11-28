@@ -10,7 +10,7 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
 
-object ChatUtils {
+internal object ChatUtils {
     fun getTimeStampString(utcTimestamp: Long): String {
         val now = Calendar.getInstance()
         val today = now.clone() as Calendar

@@ -192,17 +192,17 @@ fun ChatMessageComponent(
     }
 }
 
-fun shouldShowResponseButtons(
-    viewModel: EkaChatViewModel,
-    messages: List<ChatMessage>,
-    message: ChatMessage
-): Boolean {
-    return viewModel.sendButtonEnabled || !isLastMessage(messages, message)
-}
+//fun shouldShowResponseButtons(
+//    viewModel: EkaChatViewModel,
+//    messages: List<ChatMessage>,
+//    message: ChatMessage
+//): Boolean {
+//    return viewModel.sendButtonEnabled || !isLastMessage(messages, message)
+//}
 
-fun isLastMessage(messages: List<ChatMessage>, message: ChatMessage): Boolean {
-    return messages.first().message.messageId == message.message.messageId
-}
+//fun isLastMessage(messages: List<ChatMessage>, message: ChatMessage): Boolean {
+//    return messages.first().message.messageId == message.message.messageId
+//}
 
 fun handleMessageCTA(
     context: Context,
