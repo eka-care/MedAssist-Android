@@ -125,6 +125,7 @@ fun MultiSelectSuggestions(
         ButtonWrapper(
             text = "Confirm",
             type = ButtonWrapperType.OUTLINED,
+            borderColor = DarwinTouchPrimary,
             onClick = {
                 val combinedQuery = suggestions.filter { it.selected }.joinToString(", ") { it.label }
                 onConfirm(SuggestionModel(label = combinedQuery))
