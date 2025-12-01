@@ -163,9 +163,7 @@ private fun ConversationContent(
         }
     }
 
-    val displayedMessages = remember(messages, streamingMessage) {
-        messages.filterNot { it.msgId == streamingMessage?.msgId }
-    }
+    val displayedMessages = messages.filterNot { it.msgId == streamingMessage?.msgId }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {

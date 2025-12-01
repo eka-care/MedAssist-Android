@@ -195,20 +195,25 @@ class EkaChatViewModel(
             query = query,
             toolUseId = toolUseId,
             callback = object : ResponseStreamCallback {
+                override fun onComplete() {
+                    isQueryResponseLoading = false
+                    _responseStream.value = null
+                }
+
                 override fun onFailure(error: Exception) {
+                    MedAssistLogger.d(TAG, error.message.toString())
+                    _responseStream.value = null
                     isQueryResponseLoading = false
                 }
 
-                override fun onSuccess(responseStream: Flow<Message?>) {
-                    viewModelScope.launch {
-                        isQueryResponseLoading = true
-                        responseStream.collect {
-                            if (it != null) {
-                                isQueryResponseLoading = false
-                            }
-                            _responseStream.value = it
-                        }
-                    }
+                override fun onNewEvent(event: Message) {
+                    isQueryResponseLoading = false
+                    _responseStream.value = event
+                }
+
+                override fun onSuccess() {
+                    isQueryResponseLoading = true
+                    _responseStream.value = null
                 }
             })
     }
@@ -560,13 +565,12 @@ class EkaChatViewModel(
         }
         isVoiceToTextRecording = false
         if(!sendButtonEnabled) return
+        if (currentAudioFile == null) {
+            sendButtonEnabled = true
+            _currentTranscribeData.value = Response.Error("No audio file found")
+            return
+        }
         try {
-            if (currentAudioFile == null) {
-                sendButtonEnabled = true
-                _currentTranscribeData.value = Response.Error("No audio file found")
-                return
-            }
-
             currentAudioFile?.let { audioFile ->
                 _currentTranscribeData.value = Response.Loading()
 
