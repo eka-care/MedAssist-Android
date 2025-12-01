@@ -22,6 +22,7 @@ fun SuggestionsComponent(
     suggestionList : List<SuggestionModel>,
     suggestionType: SuggestionType,
     showLeftIcon: Boolean,
+    enabled : Boolean,
 ) {
     val iconAlpha = if (showLeftIcon) 1f else 0f
 
@@ -52,10 +53,12 @@ fun SuggestionsComponent(
                 when(suggestionType) {
                     SuggestionType.SINGLE_SELECT -> SingleSelectSuggestion(
                         suggestionList = suggestionList,
+                        enabled = enabled,
                         onSuggestionClicked = onSuggestionClicked
                     )
                     SuggestionType.MULTI_SELECT -> MultiSelectSuggestions(
                         suggestionList = suggestionList,
+                        enabled = enabled,
                         onConfirm = onSuggestionClicked
                     )
                 }

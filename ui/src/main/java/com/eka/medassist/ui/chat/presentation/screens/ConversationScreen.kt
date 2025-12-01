@@ -217,16 +217,15 @@ private fun ConversationContent(
                 }
 
                 is Message.SingleSelect -> {
-                    if(isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item)) {
-                        SuggestionsComponent(
-                            showLeftIcon = true,
-                            suggestionType = SuggestionType.SINGLE_SELECT,
-                            suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
-                            onSuggestionClicked = {
-                                viewModel.askNewQuery(toolUseId = item.toolUseId, query = it.label)
-                            }
-                        )
-                    }
+                    SuggestionsComponent(
+                        showLeftIcon = true,
+                        suggestionType = SuggestionType.SINGLE_SELECT,
+                        suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
+                        enabled = isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item),
+                        onSuggestionClicked = {
+                            viewModel.askNewQuery(toolUseId = item.toolUseId, query = it.label)
+                        }
+                    )
                     if(item.text.isNotBlank()) {
                         ChatBubbleLeft(
                             message = item.text,
@@ -240,16 +239,15 @@ private fun ConversationContent(
                 }
 
                 is Message.MultiSelect -> {
-                    if(isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item)) {
-                        SuggestionsComponent(
-                            showLeftIcon = true,
-                            suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
-                            suggestionType = SuggestionType.MULTI_SELECT,
-                            onSuggestionClicked = {
-                                viewModel.askNewQuery(toolUseId = item.toolUseId, query = it.label)
-                            }
-                        )
-                    }
+                    SuggestionsComponent(
+                        showLeftIcon = true,
+                        suggestionList = item.choices.map { choice -> SuggestionModel(label = choice) },
+                        suggestionType = SuggestionType.MULTI_SELECT,
+                        enabled = isLastMessage(sendEnabled = sendEnabled, messages = messages, message = item),
+                        onSuggestionClicked = {
+                            viewModel.askNewQuery(toolUseId = item.toolUseId, query = it.label)
+                        }
+                    )
                     if(item.text.isNotBlank()) {
                         ChatBubbleLeft(
                             message = item.text,

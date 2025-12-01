@@ -86,7 +86,6 @@ fun EkaChatBotDetailScreen(
     LaunchedEffect(searchText) {
         if (searchText.isBlank()) {
 //            viewModel.syncDocAssistHistory()
-            viewModel.getChatSessions()
         } else {
 //            viewModel.getSearchResults(searchQuery = searchText, ownerId = ChatUtils.getOwnerId())
         }

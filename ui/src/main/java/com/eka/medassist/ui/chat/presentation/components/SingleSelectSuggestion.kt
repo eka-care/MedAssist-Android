@@ -33,6 +33,7 @@ import com.eka.medassist.ui.chat.theme.touchCalloutRegular
 @Composable
 fun SingleSelectSuggestion(
     suggestionList : List<SuggestionModel>,
+    enabled : Boolean,
     onSuggestionClicked : (SuggestionModel) -> Unit,
 ) {
     Column(
@@ -47,7 +48,7 @@ fun SingleSelectSuggestion(
         )
         Spacer(modifier = Modifier.height(8.dp))
         suggestionList.forEach { suggestion ->
-            SuggestionRow(suggestion = suggestion) {
+            SuggestionRow(suggestion = suggestion, enabled = enabled) {
                 onSuggestionClicked(suggestion)
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -59,13 +60,14 @@ fun SingleSelectSuggestion(
 fun SuggestionRow(
     suggestion: SuggestionModel,
     isSelectable : Boolean = false,
+    enabled : Boolean,
     onSuggestionClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(size = 8.dp))
-            .clickable {
+            .clickable(enabled = enabled) {
                 onSuggestionClick()
             }
             .background(color = DarwinTouchNeutral0, shape = RoundedCornerShape(size = 8.dp))
@@ -76,6 +78,7 @@ fun SuggestionRow(
             Checkbox(
                 modifier = Modifier.size(24.dp).padding(end = 8.dp),
                 checked = suggestion.selected,
+                enabled = enabled,
                 onCheckedChange = {
                     onSuggestionClick()
                 },
@@ -89,7 +92,7 @@ fun SuggestionRow(
             modifier = Modifier.weight(1f),
             text = suggestion.label,
             style = touchCalloutRegular,
-            color = DarwinTouchPrimary
+            color = if(enabled) DarwinTouchPrimary else DarwinTouchNeutral400
         )
     }
 }
@@ -97,6 +100,7 @@ fun SuggestionRow(
 @Composable
 fun MultiSelectSuggestions(
     suggestionList: List<SuggestionModel>,
+    enabled: Boolean,
     onConfirm : (SuggestionModel) -> Unit
 ) {
     val suggestions = remember { suggestionList.toMutableStateList() }
@@ -117,15 +121,15 @@ fun MultiSelectSuggestions(
         )
         Spacer(modifier = Modifier.height(8.dp))
         suggestions.forEachIndexed { index, suggestion ->
-            SuggestionRow(suggestion = suggestion, isSelectable = true) {
+            SuggestionRow(suggestion = suggestion, isSelectable = true, enabled = enabled) {
                 onSuggestionClicked(index, suggestion)
             }
             Spacer(modifier = Modifier.height(8.dp))
         }
         ButtonWrapper(
             text = "Confirm",
+            enabled = enabled && suggestions.any { it.selected },
             type = ButtonWrapperType.OUTLINED,
-            borderColor = DarwinTouchPrimary,
             onClick = {
                 val combinedQuery = suggestions.filter { it.selected }.joinToString(", ") { it.label }
                 onConfirm(SuggestionModel(label = combinedQuery))

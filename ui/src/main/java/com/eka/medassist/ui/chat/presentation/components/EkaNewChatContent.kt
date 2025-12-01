@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,14 +42,7 @@ fun EkaNewChatContent(
     onClick: (CTA) -> Unit
 ) {
     val sessionMessages by viewModel.sessionMessages.collectAsState()
-    val suggestionList by viewModel.suggestionList.collectAsState()
     val listState = rememberLazyListState()
-
-    DisposableEffect(Unit) {
-        onDispose {
-            viewModel.stopAudio()
-        }
-    }
 
     LaunchedEffect(sessionMessages) {
         if (sessionMessages.messageEntityResp.isNotEmpty()) {
@@ -82,17 +74,6 @@ fun EkaNewChatContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                if (sessionMessages.messageEntityResp.isNotEmpty() && suggestionList.isNotEmpty() && sessionMessages.messageEntityResp.first().message.role == MessageRole.AI) {
-//                    item {
-//                        SuggestionsComponent(
-//                            onSuggestionClicked = {
-//                                onSuggestionClick(it)
-//                            },
-//                            showLeftIcon = true,
-//                            viewModel = viewModel,
-//                        )
-//                    }
-                }
                 itemsIndexed(
                     items = sessionMessages.messageEntityResp,
                     key = { _, chatMessage -> chatMessage.message.messageId }) { index, chatMessage ->
