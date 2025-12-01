@@ -43,8 +43,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import com.eka.conversation.common.NetworkChecker
-import com.eka.conversation.common.PermissionChecker
+import com.eka.conversation.common.hasRecordAudioPermission
+import com.eka.conversation.common.isNetworkAvailable
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.states.ActionType
@@ -165,11 +165,11 @@ fun EkaChatBottom(
                                 .size(16.dp)
                                 .padding(end = 4.dp)
                                 .clickable {
-                                    if (!NetworkChecker.isNetworkAvailable(context.applicationContext)) {
+                                    if (!isNetworkAvailable(context.applicationContext)) {
                                         viewModel.showToast("Internet not available.")
                                         return@clickable
                                     }
-                                    if (PermissionChecker.hasRecordAudioPermission(context)) {
+                                    if (hasRecordAudioPermission(context)) {
                                         val params = JSONObject()
                                         params.put("type", "voicetx")
                                         onMicrophoneClick()

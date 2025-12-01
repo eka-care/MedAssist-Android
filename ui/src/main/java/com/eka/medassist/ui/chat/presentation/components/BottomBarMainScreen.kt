@@ -21,8 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import com.eka.conversation.common.NetworkChecker
-import com.eka.conversation.common.PermissionChecker
+import com.eka.conversation.common.hasRecordAudioPermission
+import com.eka.conversation.common.isNetworkAvailable
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
@@ -97,13 +97,13 @@ fun BottomBarMainScreen(
                 isMicrophoneRecording = viewModel.isVoiceToTextRecording,
                 isVoice2RxRecording = viewModel.isVoice2RxRecording,
                 onMicrophoneClick = {
-                    if (PermissionChecker.hasRecordAudioPermission(context) && NetworkChecker.isNetworkAvailable(
+                    if (hasRecordAudioPermission(context) && isNetworkAvailable(
                             context
                         )
                     ) {
                         keyboardController?.hide()
                         viewModel.isVoiceToTextRecording = !viewModel.isVoiceToTextRecording
-                    } else if (!NetworkChecker.isNetworkAvailable(context)) {
+                    } else if (!isNetworkAvailable(context)) {
                         viewModel.showToast("Internet not available.")
                     } else {
                         viewModel.showToast("Microphone permission not granted.")

@@ -18,7 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.eka.conversation.common.IdGenerator
+import com.eka.conversation.common.generateSessionId
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.navigation.ChatScreenNavModel
 import com.eka.medassist.ui.chat.presentation.components.BottomBarMainScreen
@@ -59,7 +59,7 @@ fun EkaChatBotMainScreen(
 //        viewModel.createNewSession()
         viewModel.updateTextInputState("")
         if (sessionId.isNullOrEmpty()) {
-            sessionId = IdGenerator.generateSessionId()
+            sessionId = generateSessionId()
             viewModel.updateSessionId(sessionId.toString())
             // TODO Get Session Messages
 //            viewModel.getSessionMessages(sessionId.toString())

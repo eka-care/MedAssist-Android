@@ -13,8 +13,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
-import com.eka.conversation.common.PermissionChecker
 import com.eka.conversation.common.Response
+import com.eka.conversation.common.hasRecordAudioPermission
 import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 
@@ -52,7 +52,7 @@ fun ConversationInput(
                             viewModel.showToast("Mic Disabled!")
                             return@DefaultInputComponent
                         }
-                        if(PermissionChecker.hasRecordAudioPermission(context = context)) {
+                        if(hasRecordAudioPermission(context = context)) {
                             viewModel.setInputState(ConversationInputState.Audio)
                         } else {
                             askMicrophonePermission()

@@ -13,8 +13,8 @@ import com.eka.conversation.client.ChatSDK
 import com.eka.conversation.client.interfaces.ResponseStreamCallback
 import com.eka.conversation.client.interfaces.SessionCallback
 import com.eka.conversation.client.models.Message
-import com.eka.conversation.common.FileNameGenerator
 import com.eka.conversation.common.Response
+import com.eka.conversation.common.generateFileName
 import com.eka.conversation.common.models.SpeechToTextConfiguration
 import com.eka.conversation.common.models.UserInfo
 import com.eka.conversation.data.local.db.entities.MessageEntity
@@ -273,7 +273,7 @@ class EkaChatViewModel(
         }
         isVoiceToTextRecording = true
         audioRecorder = AndroidAudioRecorder(app)
-        currentAudioFile = File(app.filesDir, "${FileNameGenerator.generateFileName(MessageFileType.AUDIO)}.mp4")
+        currentAudioFile = File(app.filesDir, "${generateFileName(MessageFileType.AUDIO)}.mp4")
         audioRecorder.startRecording(currentAudioFile!!, onError = onError)
     }
 
