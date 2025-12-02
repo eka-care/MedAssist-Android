@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.eka.conversation.client.ChatSDK
 import com.eka.conversation.client.models.Message
 import com.eka.conversation.common.models.UserInfo
 import com.eka.conversation.data.local.db.entities.models.MessageRole
@@ -56,6 +58,13 @@ fun ConversationScreen(
     val typewriterState = remember { TypewriterState(charDelayMs = 20L, scope = scope) }
     val streamingMessage by typewriterState.currentMessage
     val isThinking = viewModel.isQueryResponseLoading
+
+    DisposableEffect(Unit) {
+        onDispose {
+            ChatSDK.cleanUp()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

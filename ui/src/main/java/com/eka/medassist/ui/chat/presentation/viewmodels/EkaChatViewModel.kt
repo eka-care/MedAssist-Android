@@ -397,5 +397,6 @@ class EkaChatViewModel(
             audioRecorder.stopRecording()
         }
         isVoice2RxRecording = false
+        ChatSDK.cleanUp()
     }
 }
