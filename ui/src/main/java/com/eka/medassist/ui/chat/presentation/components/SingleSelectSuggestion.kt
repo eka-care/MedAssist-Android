@@ -24,10 +24,8 @@ import com.eka.medassist.ui.chat.presentation.common.molecule.ButtonWrapper
 import com.eka.medassist.ui.chat.presentation.common.molecule.ButtonWrapperType
 import com.eka.medassist.ui.chat.presentation.models.SuggestionModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
-import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral400
 import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
-import com.eka.medassist.ui.chat.theme.touchBodyRegular
 import com.eka.medassist.ui.chat.theme.touchCalloutRegular
 
 @Composable
@@ -40,13 +38,13 @@ fun SingleSelectSuggestion(
         modifier = Modifier
             .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
     ) {
-        Text(
-            modifier = Modifier,
-            text = "Suggested questions you can ask me-",
-            style = touchBodyRegular,
-            color = DarwinTouchNeutral1000
-        )
-        Spacer(modifier = Modifier.height(8.dp))
+//        Text(
+//            modifier = Modifier,
+//            text = "Suggested questions you can ask me-",
+//            style = touchBodyRegular,
+//            color = DarwinTouchNeutral1000
+//        )
+//        Spacer(modifier = Modifier.height(8.dp))
         suggestionList.forEach { suggestion ->
             SuggestionRow(suggestion = suggestion, enabled = enabled) {
                 onSuggestionClicked(suggestion)
@@ -113,13 +111,13 @@ fun MultiSelectSuggestions(
         modifier = Modifier
             .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
     ) {
-        Text(
-            modifier = Modifier,
-            text = "Suggested questions you can select multiple - ",
-            style = touchBodyRegular,
-            color = DarwinTouchNeutral1000
-        )
-        Spacer(modifier = Modifier.height(8.dp))
+//        Text(
+//            modifier = Modifier,
+//            text = "Suggested questions you can select multiple - ",
+//            style = touchBodyRegular,
+//            color = DarwinTouchNeutral1000
+//        )
+//        Spacer(modifier = Modifier.height(8.dp))
         suggestions.forEachIndexed { index, suggestion ->
             SuggestionRow(suggestion = suggestion, isSelectable = true, enabled = enabled) {
                 onSuggestionClicked(index, suggestion)
