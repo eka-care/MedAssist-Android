@@ -45,13 +45,18 @@ import kotlinx.coroutines.launch
 fun ConversationScreen(
     userInfo: UserInfo,
     viewModel: EkaChatViewModel,
+    sessionId : String?,
     onBackClick : () -> Unit,
     askMicrophonePermission : () -> Unit
 ) {
     val responseStream by viewModel.responseStream.collectAsState()
     val messages = viewModel.messages.collectAsState().value
     LaunchedEffect(Unit) {
-        viewModel.createNewSession(userInfo = userInfo)
+        if(sessionId.isNullOrBlank()) {
+            viewModel.createNewSession(userInfo = userInfo)
+        } else {
+            viewModel.startExistingSession(sessionId = sessionId)
+        }
     }
     val connectionState by viewModel.connectionState.collectAsState()
     val scope = rememberCoroutineScope()
