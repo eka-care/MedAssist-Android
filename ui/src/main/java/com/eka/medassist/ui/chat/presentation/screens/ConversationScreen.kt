@@ -77,7 +77,9 @@ fun ConversationScreen(
             title = stringResource(id = R.string.new_chat),
             subTitle = getConnectionState(state = connectionState),
             onNewChat = {
-                viewModel.startNewSession(userInfo = userInfo)
+                if(messages.isNotEmpty()) {
+                    viewModel.startNewSession(userInfo = userInfo)
+                }
             },
             onBackClick = onBackClick,
         )
