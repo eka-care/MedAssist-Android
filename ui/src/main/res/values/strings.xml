@@ -13,4 +13,5 @@
     <string name="start_new_chat">Ask anything...</string>
     <string name="tap_to_stop_recording">Tap to stop recording</string>
     <string name="converting_to_text">Converting to text...</string>
+    <string name="title_activity_chat_screen">ChatScreenActivity</string>
 </resources>

@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,13 +21,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.eka.conversation.client.models.ChatInfo
 import com.eka.conversation.common.models.UserInfo
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonType
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
 import com.eka.medassist.ui.chat.presentation.components.ConversationHeader
 import com.eka.medassist.ui.chat.presentation.components.SessionListShimmer
+import com.eka.medassist.ui.chat.presentation.models.ChatSession
 import com.eka.medassist.ui.chat.presentation.states.PastSessionState
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
@@ -48,11 +51,13 @@ fun ConversationHistoryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .navigationBarsPadding()
             .background(DarwinTouchNeutral50)
     ) {
         ConversationHeader(
             title = "Past Sessions",
-            onBackClick = onBackClick
+            newChatEnabled = false,
+            onBackClick = onBackClick,
         )
 
         when(pastSessions) {
@@ -63,13 +68,29 @@ fun ConversationHistoryScreen(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                 ) {
-                    items(items = (pastSessions as PastSessionState.Success).data) {
-                        ChatSessionItem(
-                            session = it,
-                            onClick = {
-                                onSessionClick(it.sessionId)
+                    (pastSessions as PastSessionState.Success).data.toList().forEach { sessions ->
+                        stickyHeader {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(color = DarwinTouchNeutral50)
+                                    .padding(vertical = 4.dp, horizontal = 16.dp)
+                            ) {
+                                Text(
+                                    text = sessions.first,
+                                    style = EkaTheme.typography.titleSmall,
+                                    color = EkaTheme.colors.onSurfaceVariant,
+                                )
                             }
-                        )
+                        }
+                        items(items = sessions.second) {
+                            ChatSessionItem(
+                                session = it,
+                                onClick = {
+                                    onSessionClick(it.sessionId)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -82,7 +103,7 @@ fun ConversationHistoryScreen(
 
 @Composable
 fun ChatSessionItem(
-    session : ChatInfo,
+    session : ChatSession,
     onClick : () -> Unit,
 ) {
     ListItem(
@@ -94,11 +115,18 @@ fun ChatSessionItem(
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = session.sessionTitle ?: "Chat Session",
+                    text = session.sessionTitle,
                     color = EkaTheme.colors.onSurface,
                     style = EkaTheme.typography.bodyLargeEmphasized(),
                 )
             }
+        },
+        supportingContent = {
+            Text(
+                text = session.time,
+                style = EkaTheme.typography.labelLarge,
+                color = EkaTheme.colors.onSecondaryContainer
+            )
         },
         trailingContent = {
             IconButtonWrapper(
