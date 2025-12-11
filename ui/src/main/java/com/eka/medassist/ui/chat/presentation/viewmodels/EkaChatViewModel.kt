@@ -2,7 +2,6 @@ package com.eka.medassist.ui.chat.presentation.viewmodels
 
 import android.app.Application
 import android.content.Context
-import android.media.MediaPlayer
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,12 +11,12 @@ import androidx.lifecycle.viewModelScope
 import com.eka.conversation.client.ChatSDK
 import com.eka.conversation.client.interfaces.ResponseStreamCallback
 import com.eka.conversation.client.interfaces.SessionCallback
+import com.eka.conversation.client.models.ChatInfo
 import com.eka.conversation.client.models.Message
 import com.eka.conversation.common.Response
 import com.eka.conversation.common.generateFileName
 import com.eka.conversation.common.models.SpeechToTextConfiguration
 import com.eka.conversation.common.models.UserInfo
-import com.eka.conversation.data.local.db.entities.MessageEntity
 import com.eka.conversation.data.local.db.entities.models.MessageFileType
 import com.eka.conversation.data.remote.socket.models.AudioFormat
 import com.eka.conversation.data.remote.socket.states.SocketConnectionState
@@ -27,8 +26,11 @@ import com.eka.medassist.ui.chat.data.local.models.ChatContext
 import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.presentation.models.ChatSession
 import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
+import com.eka.medassist.ui.chat.presentation.models.toChatSession
 import com.eka.medassist.ui.chat.presentation.screens.BotViewMode
-import com.eka.medassist.ui.chat.presentation.states.SessionMessagesState
+import com.eka.medassist.ui.chat.presentation.states.PastSessionState
+import com.eka.medassist.ui.chat.presentation.states.TypewriterState
+import com.eka.medassist.ui.chat.utility.getDateHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -41,7 +43,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import com.eka.medassist.ui.chat.common.Response as EkaResponse
 
 class EkaChatViewModel(
     val app: Application
@@ -50,18 +51,11 @@ class EkaChatViewModel(
     companion object {
         const val TAG = "EkaChatViewModel"
     }
-
-    var sessionId by mutableStateOf("")
     var sendButtonEnabled by mutableStateOf(false)
 
     private val _inputState =
         MutableStateFlow<ConversationInputState>(ConversationInputState.Default)
     val inputState = _inputState.asStateFlow()
-
-    private val _sessionMessages =
-        MutableStateFlow(SessionMessagesState(isLoading = true, messageEntityResp = emptyList()))
-    val sessionMessages = _sessionMessages.asStateFlow()
-    var currentChatContext by mutableStateOf<ChatContext?>(null)
 
     private lateinit var audioRecorder: AndroidAudioRecorder
 
@@ -80,9 +74,6 @@ class EkaChatViewModel(
     private val _currentTranscribeData = MutableStateFlow<Response<String>>(Response.Loading())
     val currentTranscribeData = _currentTranscribeData.asStateFlow()
 
-    private val _moreSuggestions = MutableStateFlow<EkaResponse<Boolean>>(EkaResponse.Success(true))
-    val moreSuggestions = _moreSuggestions.asStateFlow()
-
     private val _botViewMode = MutableStateFlow(BotViewMode.ALL_CHATS)
     val botViewMode = _botViewMode.asStateFlow()
 
@@ -93,16 +84,16 @@ class EkaChatViewModel(
         MutableStateFlow<SocketConnectionState>(SocketConnectionState.Idle)
     val connectionState = _connectionState.asStateFlow()
 
-    var job: Job? = null
-    private var mediaPlayer: MediaPlayer? = null
-    var playingSessionId by mutableStateOf("")
-
     var isVoice2RxRecording: Boolean by mutableStateOf(false)
     var isVoiceToTextRecording: Boolean by mutableStateOf(false)
     var isQueryResponseLoading: Boolean by mutableStateOf(false)
     private var currentSessionId: String? = null
 
+    var sessionStreamsFlowJob : Job? = null
+
     val messages = MutableStateFlow<List<Message>>(emptyList())
+
+    val typeWriterState = mutableStateOf(TypewriterState(charDelayMs = 20L, scope = viewModelScope))
 
     fun createNewSession(userInfo: UserInfo) {
         viewModelScope.launch {
@@ -112,7 +103,8 @@ class EkaChatViewModel(
                     sessionId = lastSessionId,
                     callback = object : SessionCallback {
                         override fun onFailure(error: Exception) {
-                            startNewSession(userInfo = userInfo)
+                            updateSessionMessages(sessionId = lastSessionId)
+                            _connectionState.value = SocketConnectionState.Error(error)
                             MedAssistLogger.d(TAG, error.message.toString())
                         }
 
@@ -136,13 +128,41 @@ class EkaChatViewModel(
         }
     }
 
+    fun startExistingSession(sessionId: String) {
+        updateSessionId(session = sessionId)
+        ChatSDK.startSession(
+            sessionId = sessionId,
+            callback = object : SessionCallback {
+                override fun onFailure(error: Exception) {
+                    updateSessionMessages(sessionId = sessionId)
+                    _connectionState.value = SocketConnectionState.Error(error)
+                    MedAssistLogger.d(TAG, error.message.toString())
+                }
+
+                override fun onSuccess(
+                    sessionId: String,
+                    connectionState: StateFlow<SocketConnectionState>,
+                    sessionMessages: Response<Flow<List<Message>>>,
+                    queryEnabled: StateFlow<Boolean>
+                ) {
+                    onSessionStartSuccess(
+                        sessionId = sessionId,
+                        connectionState = connectionState,
+                        sessionMessages = sessionMessages,
+                        queryEnabled = queryEnabled
+                    )
+                }
+            })
+    }
+
     fun startNewSession(userInfo: UserInfo) {
+        resetSessionStates()
         ChatSDK.startSession(
             userInfo = userInfo,
             callback = object : SessionCallback {
             override fun onFailure(error: Exception) {
+                _connectionState.value = SocketConnectionState.Error(error)
                 MedAssistLogger.d(TAG, error.message.toString())
-                // TODO handle error
             }
 
             override fun onSuccess(
@@ -161,6 +181,18 @@ class EkaChatViewModel(
         })
     }
 
+    fun updateSessionMessages(sessionId : String) {
+        viewModelScope.launch {
+            ChatSDK.getSessionMessages(sessionId = sessionId)?.onSuccess {
+                MedAssistLogger.d(TAG, "Session messages updated $sessionId")
+                messages.value = it
+            }?.onFailure {
+                MedAssistLogger.d(TAG, "Session messages failed $sessionId")
+                messages.value = emptyList()
+            }
+        }
+    }
+
     fun onSessionStartSuccess(
         sessionId: String,
         connectionState: StateFlow<SocketConnectionState>,
@@ -169,19 +201,24 @@ class EkaChatViewModel(
     ) {
         sendButtonEnabled = true
         updateSessionId(session = sessionId)
-        viewModelScope.launch {
-            sessionMessages.data?.collect {
-                messages.value = it
+        sessionStreamsFlowJob?.cancel()
+        sessionStreamsFlowJob = null
+        sessionStreamsFlowJob = viewModelScope.launch {
+            launch {
+                sessionMessages.data?.collect {
+                    MedAssistLogger.d(TAG, "onSessionStartSuccess Session messages updated $sessionId")
+                    messages.value = it
+                }
             }
-        }
-        viewModelScope.launch {
-            connectionState.collect {
-                _connectionState.value = it
+            launch {
+                connectionState.collect {
+                    _connectionState.value = it
+                }
             }
-        }
-        viewModelScope.launch {
-            queryEnabled.collect {
-                sendButtonEnabled = it
+            launch {
+                queryEnabled.collect {
+                    sendButtonEnabled = it
+                }
             }
         }
     }
@@ -217,12 +254,30 @@ class EkaChatViewModel(
             })
     }
 
-    fun updateBotViewMode(newMode: BotViewMode) {
-        _botViewMode.value = newMode
+    fun resetSessionStates() {
+        sessionStreamsFlowJob?.cancel()
+        sessionStreamsFlowJob = null
+        typeWriterState.value.complete()
+        typeWriterState.value = TypewriterState(charDelayMs = 20L, scope = viewModelScope)
+        messages.value = emptyList()
+        _responseStream.value = null
+        _connectionState.value = SocketConnectionState.Idle
+        _chatSessions.value = emptyList()
+        _groupedSessionsByContext.value = emptyMap()
+        _isSessionsLoading.value = false
+        _pastSessions.value = PastSessionState.Loading
+        _inputState.value = ConversationInputState.Default
+        _botViewMode.value = BotViewMode.ALL_CHATS
+        _textInputState.value = ""
+        isVoiceToTextRecording = false
+        isVoice2RxRecording = false
+        isQueryResponseLoading = false
+        sendButtonEnabled = true
+        currentAudioFile = null
     }
 
-    fun resetSuggestions() {
-        _moreSuggestions.value = EkaResponse.Success(true)
+    fun updateBotViewMode(newMode: BotViewMode) {
+        _botViewMode.value = newMode
     }
 
     fun updateTextInputState(newValue: String) {
@@ -230,40 +285,16 @@ class EkaChatViewModel(
     }
 
     fun updateSessionId(session: String) {
+        resetSessionStates()
         currentSessionId = session
-        clearSessionMessages()
     }
 
-    fun clearSessionMessages() {
-        _sessionMessages.value = SessionMessagesState(
-            isLoading = false,
-            messageEntityResp = emptyList(),
-        )
-    }
-
-    fun getSearchResults(searchQuery: String, ownerId: String? = null) {
-//        if (searchQuery.isBlank()) {
-//            return
-//        }
-//        viewModelScope.launch {
-//            val response = ChatSDK.getSearchResult(query = searchQuery, ownerId = ownerId)
-//            response?.collect { messages ->
-//
-//            }
-//        }
+    fun getCurrentSessionId() : String? {
+        return currentSessionId
     }
 
     fun setInputState(state: ConversationInputState) {
         _inputState.value = state
-    }
-
-    private fun groupBySessionId(messages: List<MessageEntity>): List<MessageEntity> {
-        val groupedMessages = messages.groupBy { it.sessionId }
-        val lastMessages = mutableListOf<MessageEntity>()
-        groupedMessages.forEach { (_, value) ->
-            lastMessages.add(value.last())
-        }
-        return lastMessages
     }
 
     fun startAudioRecording(onError: (String) -> Unit) {
@@ -345,6 +376,34 @@ class EkaChatViewModel(
             }
         } catch (e: Exception) {
         }
+    }
+
+    private val _pastSessions = MutableStateFlow<PastSessionState>(PastSessionState.Loading)
+    val pastSessions = _pastSessions.asStateFlow()
+
+    fun getPastSession(userInfo: UserInfo) {
+        viewModelScope.launch {
+            _pastSessions.value = PastSessionState.Loading
+            ChatSDK.getPastSessions(userInfo = userInfo)
+                .onSuccess {
+                    it.collect { sessions ->
+                        _pastSessions.value = PastSessionState.Success(data = groupSessionsByDate(sessions = sessions))
+                    }
+                }.onFailure {
+                    _pastSessions.value = PastSessionState.Error(message = it.message.toString())
+                }
+        }
+    }
+
+    fun groupSessionsByDate(sessions: List<ChatInfo>): Map<String, List<ChatSession>> {
+        return sessions
+            .sortedByDescending { it.createdAt }
+            .groupBy { it.createdAt.getDateHeader() }
+            .mapValues { (_, sessionList) ->
+                sessionList.map { session ->
+                    session.toChatSession()
+                }
+            }
     }
 
     fun generatePdf(data: String, context: Context) {
