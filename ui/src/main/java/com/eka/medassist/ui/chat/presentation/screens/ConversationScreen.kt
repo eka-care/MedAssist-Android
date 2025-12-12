@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
 fun ConversationScreen(
     userInfo: UserInfo,
     viewModel: EkaChatViewModel,
-    sessionId : String?,
+    sessionId : String? = null,
     onBackClick : () -> Unit,
     askMicrophonePermission : () -> Unit
 ) {
