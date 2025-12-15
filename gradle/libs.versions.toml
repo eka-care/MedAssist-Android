@@ -15,8 +15,8 @@ coil = "2.7.0"
 gson = "2.13.2"
 ekaUiKit = "1.0.3"
 #ekaUiKit = "0.0.1"
-aiChat = "2.0.2"
-#aiChat = "1.0.5"
+#aiChat = "2.0.2"
+aiChat = "1.0.5"
 lottie-compose = "6.7.1"
 googleFonts = "1.9.4"
 composeMarkdown = "0.5.4"
@@ -45,8 +45,8 @@ eka-ui-kit = { module = "com.github.eka-care:eka-ui-kit", version.ref = "ekaUiKi
 compose-shimmer = { module = "com.valentinilk.shimmer:compose-shimmer", version.ref = "composeShimmer" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 google-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
-ai-chat = { module = "com.github.eka-care:ai-chat", version.ref = "aiChat" }
-#ai-chat = { module = "com.eka.conversation:eka-conversation", version.ref = "aiChat" }
+#ai-chat = { module = "com.github.eka-care:ai-chat", version.ref = "aiChat" }
+ai-chat = { module = "com.eka.conversation:eka-conversation", version.ref = "aiChat" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie-compose" }
 androidx-fonts = { module = "androidx.compose.ui:ui-text-google-fonts", version.ref = "googleFonts" }
 compose-markdown = { module = "com.github.jeziellago:compose-markdown", version.ref = "composeMarkdown" }
