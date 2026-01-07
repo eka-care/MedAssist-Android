@@ -52,7 +52,7 @@ fun ConversationScreen(
     val messages = viewModel.messages.collectAsState().value
     LaunchedEffect(Unit) {
         if(sessionId.isNullOrBlank()) {
-            viewModel.createNewSession(userInfo = userInfo)
+            viewModel.startNewSession(userInfo = userInfo)
         } else {
             viewModel.startExistingSession(sessionId = sessionId)
         }
