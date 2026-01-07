@@ -22,3 +22,5 @@ local.properties
 /.idea/migrations.xml
 /.idea/inspectionProfiles/Project_Default.xml
 /.idea/runConfigurations.xml
+/.idea/appInsightsSettings.xml
+/.idea/deviceManager.xml

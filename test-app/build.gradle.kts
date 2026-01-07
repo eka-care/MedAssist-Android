@@ -31,6 +31,7 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "AGENT_ID", "\"${config["AGENT_ID"]}\"")
         }
         debug {
             isMinifyEnabled = false
