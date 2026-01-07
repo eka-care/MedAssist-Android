@@ -1,59 +1,51 @@
 package com.eka.medassist
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.viewModels
 import com.eka.conversation.client.models.Environment
 import com.eka.conversation.common.models.UserInfo
 import com.eka.medassist.ui.chat.client.MedAssistSDK
-import com.eka.medassist.ui.chat.presentation.screens.ConversationScreen
+import com.eka.medassist.ui.chat.presentation.activities.ActivityParams
+import com.eka.medassist.ui.chat.presentation.activities.ChatScreenActivity
+import com.eka.medassist.ui.chat.presentation.screens.ConversationHistoryScreen
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
 import com.eka.medassist.ui.theme.MedAssistTheme
 
 class MainActivity : ComponentActivity() {
+    val viewModel by viewModels<EkaChatViewModel>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         enableEdgeToEdge()
         MedAssistSDK.initialise(
             context = this,
+            debugMode = true,
             environment = Environment.PROD,
-            agentId = "agentId"
+            agentId = BuildConfig.AGENT_ID
         )
         setContent {
             MedAssistTheme {
-                ConversationScreen(
+                ConversationHistoryScreen(
                     userInfo = UserInfo(
                         userId = "divyesh-test_2",
                         businessId = "divyesh-test_2"
                     ),
-                    EkaChatViewModel(app = application),
+                    viewModel = viewModel,
+                    onSessionClick = { sessionId ->
+                        startActivity(Intent(this, ChatScreenActivity::class.java).apply {
+                            putExtra(ActivityParams.SESSION_ID, sessionId)
+                            putExtra(ActivityParams.OWNER_ID, "divyesh-test_2")
+                            putExtra(ActivityParams.BUSINESS_ID, "divyesh-test_2")
+                        })
+                    },
                     onBackClick = {},
-                    askMicrophonePermission = {}
                 )
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    MedAssistTheme {
-        Greeting("Android")
     }
 }

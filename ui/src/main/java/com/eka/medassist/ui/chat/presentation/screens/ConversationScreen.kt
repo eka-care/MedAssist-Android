@@ -14,7 +14,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,17 +44,21 @@ import kotlinx.coroutines.launch
 fun ConversationScreen(
     userInfo: UserInfo,
     viewModel: EkaChatViewModel,
+    sessionId : String? = null,
     onBackClick : () -> Unit,
     askMicrophonePermission : () -> Unit
 ) {
     val responseStream by viewModel.responseStream.collectAsState()
     val messages = viewModel.messages.collectAsState().value
     LaunchedEffect(Unit) {
-        viewModel.createNewSession(userInfo = userInfo)
+        if(sessionId.isNullOrBlank()) {
+            viewModel.createNewSession(userInfo = userInfo)
+        } else {
+            viewModel.startExistingSession(sessionId = sessionId)
+        }
     }
     val connectionState by viewModel.connectionState.collectAsState()
-    val scope = rememberCoroutineScope()
-    val typewriterState = remember { TypewriterState(charDelayMs = 20L, scope = scope) }
+    val typewriterState by viewModel.typeWriterState
     val streamingMessage by typewriterState.currentMessage
     val isThinking = viewModel.isQueryResponseLoading
 
@@ -73,15 +76,22 @@ fun ConversationScreen(
         ConversationHeader(
             title = stringResource(id = R.string.new_chat),
             subTitle = getConnectionState(state = connectionState),
-            onBackClick = onBackClick
+            onNewChat = {
+                viewModel.startNewSession(userInfo = userInfo)
+            },
+            onBackClick = onBackClick,
         )
 
         when(connectionState) {
             is SocketConnectionState.Error -> {
                 ErrorContent(
+                    messages = messages,
                     error = (connectionState as? SocketConnectionState.Error)?.error ?: Throwable("Something went wrong"),
                 ) {
-                    viewModel.createNewSession(userInfo = userInfo)
+                    val existingSessionId = viewModel.getCurrentSessionId()
+                    if(!existingSessionId.isNullOrBlank()) {
+                        viewModel.startExistingSession(sessionId = existingSessionId)
+                    }
                 }
             }
             is SocketConnectionState.Disconnected, SocketConnectionState.Disconnecting, SocketConnectionState.Connected -> {
@@ -312,7 +322,7 @@ fun getConnectionState(state: SocketConnectionState): String {
         }
 
         is SocketConnectionState.Error -> {
-            return "Error : ${state.error.message.toString()}"
+            return "Error : Connection Failed!"
         }
     }
 }
