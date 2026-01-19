@@ -9,6 +9,7 @@
             android:name=".chat.presentation.activities.ChatScreenActivity"
             android:exported="false"
             android:label="@string/title_activity_chat_screen"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.MedAssist" />
     </application>
 </manifest>
