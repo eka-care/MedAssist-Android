@@ -18,8 +18,6 @@ import com.eka.medassist.ui.chat.theme.FuchsiaViolet100
 fun ConversationHeader(
     title: String,
     subTitle: String? = null,
-    newChatEnabled : Boolean = true,
-    onNewChat : () -> Unit = {},
     onBackClick : () -> Unit,
 ) {
     AppBar(
@@ -41,16 +39,6 @@ fun ConversationHeader(
                 icon = R.drawable.ic_arrow_left_regular,
                 iconSize = 16.dp
             )
-        },
-        actions = {
-            if(newChatEnabled) {
-                IconButtonWrapper(
-                    icon = R.drawable.ic_outline_add_2,
-                    iconSize = 16.dp,
-                    onClick = onNewChat,
-                    contentDescription = "New Chat"
-                )
-            }
         }
     )
 }
