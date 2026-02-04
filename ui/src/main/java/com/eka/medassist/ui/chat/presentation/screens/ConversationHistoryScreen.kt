@@ -56,7 +56,6 @@ fun ConversationHistoryScreen(
     ) {
         ConversationHeader(
             title = "Past Sessions",
-            newChatEnabled = false,
             onBackClick = onBackClick,
         )
 
