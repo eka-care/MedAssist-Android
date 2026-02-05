@@ -46,7 +46,8 @@ fun ConversationScreen(
     viewModel: EkaChatViewModel,
     sessionId : String? = null,
     onBackClick : () -> Unit,
-    askMicrophonePermission : () -> Unit
+    askMicrophonePermission : () -> Unit,
+    onNewClick:() -> Unit?={}
 ) {
     val responseStream by viewModel.responseStream.collectAsState()
     val messages = viewModel.messages.collectAsState().value
@@ -76,10 +77,8 @@ fun ConversationScreen(
         ConversationHeader(
             title = stringResource(id = R.string.new_chat),
             subTitle = getConnectionState(state = connectionState),
-            onNewChat = {
-                viewModel.startNewSession(userInfo = userInfo)
-            },
             onBackClick = onBackClick,
+            onNewClick = (if(onNewClick != {})onNewClick else {viewModel.startNewSession(userInfo = userInfo)}) as () -> Unit?
         )
 
         when(connectionState) {

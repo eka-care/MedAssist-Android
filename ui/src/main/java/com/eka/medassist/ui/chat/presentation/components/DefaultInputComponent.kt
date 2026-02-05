@@ -3,7 +3,6 @@ package com.eka.medassist.ui.chat.presentation.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -58,7 +57,6 @@ fun DefaultInputComponent(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester)
-            .imePadding()
             .navigationBarsPadding()
             .padding(16.dp),
         shape = RoundedCornerShape(24.dp),

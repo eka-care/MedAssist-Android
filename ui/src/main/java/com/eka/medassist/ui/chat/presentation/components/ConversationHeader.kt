@@ -19,8 +19,8 @@ fun ConversationHeader(
     title: String,
     subTitle: String? = null,
     newChatEnabled : Boolean = true,
-    onNewChat : () -> Unit = {},
     onBackClick : () -> Unit,
+    onNewClick : () -> Unit ?= {}
 ) {
     AppBar(
         borderColor = Color.Transparent,
@@ -47,8 +47,9 @@ fun ConversationHeader(
                 IconButtonWrapper(
                     icon = R.drawable.ic_outline_add_2,
                     iconSize = 16.dp,
-                    onClick = onNewChat,
-                    contentDescription = "New Chat"
+                    onClick =  {
+                      onNewClick.invoke()},
+                     contentDescription = "New Chat"
                 )
             }
         }

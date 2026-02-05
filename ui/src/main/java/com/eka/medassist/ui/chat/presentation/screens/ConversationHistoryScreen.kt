@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,7 +42,7 @@ fun ConversationHistoryScreen(
     onSessionClick : (sessionId : String) -> Unit,
     onBackClick : () -> Unit,
 ) {
-    val pastSessions by viewModel.pastSessions.collectAsState()
+    val pastSessions = viewModel.pastSessions.collectAsState().value
     LaunchedEffect(Unit) {
         viewModel.getPastSession(userInfo = userInfo)
     }
@@ -68,7 +67,7 @@ fun ConversationHistoryScreen(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                 ) {
-                    (pastSessions as PastSessionState.Success).data.toList().forEach { sessions ->
+                    pastSessions.data.toList().forEach { sessions ->
                         stickyHeader {
                             Row(
                                 modifier = Modifier

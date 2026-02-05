@@ -6,16 +6,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.eka.conversation.common.models.UserInfo
-import com.eka.medassist.ui.chat.presentation.components.MicrophonePermissionAlertDialog
-import com.eka.medassist.ui.chat.presentation.screens.ConversationScreen
+import com.eka.medassist.ui.chat.presentation.components.ChatScreenComponent
 import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
-import com.eka.ui.theme.EkaTheme
 
 class ChatScreenActivity : ComponentActivity() {
     val viewModel by viewModels<EkaChatViewModel>()
@@ -31,37 +24,11 @@ class ChatScreenActivity : ComponentActivity() {
             businessId = businessId
         )
         setContent {
-            ChatScreenContent(userInfo = userInfo,sessionId = sessionId)
-        }
-    }
-
-    @Composable
-    private fun ChatScreenContent(
-        userInfo: UserInfo,
-        sessionId: String?
-    ) {
-        var showPermissionDialog by remember { mutableStateOf(false) }
-        if (showPermissionDialog) {
-            MicrophonePermissionAlertDialog(
-                onConfirm = {
-                    showPermissionDialog = false
-                },
-                onDismiss = {
-                    showPermissionDialog = false
-                }
-            )
-        }
-        EkaTheme {
-            ConversationScreen(
-                userInfo = userInfo,
+            ChatScreenComponent(
                 viewModel = viewModel,
+                userInfo = userInfo,
                 sessionId = sessionId,
-                onBackClick = {
-                    onBackPressedDispatcher.onBackPressed()
-                },
-                askMicrophonePermission = {
-                    showPermissionDialog = true
-                }
+                onBackClick = { onBackPressedDispatcher.onBackPressed() }
             )
         }
     }
