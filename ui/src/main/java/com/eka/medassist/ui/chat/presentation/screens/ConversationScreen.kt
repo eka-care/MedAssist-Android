@@ -5,6 +5,22 @@ package com.eka.medassist.ui.chat.presentation.screens
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
+import com.eka.medassist.ui.chat.theme.DarwinTouchPrimaryBgLight
+import com.eka.medassist.ui.chat.theme.DarwinTouchPrimaryDark
+import com.eka.medassist.ui.chat.theme.touchCalloutRegular
+import com.eka.medassist.ui.chat.theme.touchTitle1Bold
+import java.util.Calendar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -214,6 +230,7 @@ fun ConversationScreen(
                 },
                 onAttach = onPickFiles,
                 onRemoveAttachment = viewModel::removeAttachment,
+                readingLabel = state.readingLabel,
             )
         }
     }
@@ -322,36 +339,79 @@ private fun ConversationContent(
     }
 }
 
+/**
+ * Empty chat, as on ekascribe-web's Ask AI: "Good evening, Dr. Name", the agent's welcome
+ * line and its starter pills.
+ */
 @Composable
 private fun EmptyState(state: MedAssistUiState, onSuggestion: (String) -> Unit) {
+    // Fixed for the chat's lifetime, so the greeting doesn't change under the doctor
+    val greeting = remember(state.sessionId) { greetingFor(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
+    val doctor = state.doctor
     Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(painterResource(R.drawable.ic_ai_chat_custom), null, tint = Color.Unspecified, modifier = Modifier.size(56.dp))
-        Spacer(Modifier.height(12.dp))
-        Text(state.agentConfig?.theme?.title ?: state.title, style = touchHeadlineBold, color = DarwinTouchNeutral1000)
-        state.agentConfig?.theme?.tagline?.let {
-            Text(it, style = touchFootnoteRegular, color = DarwinTouchNeutral600, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
-        }
-        state.initialMessage?.text?.let {
-            Text(it, style = touchBodyRegular, color = DarwinTouchNeutral800, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
-        }
+        Text(
+            text = buildAnnotatedString {
+                append(greeting)
+                if (doctor != null) {
+                    append(", ")
+                    withStyle(SpanStyle(brush = Brush.linearGradient(listOf(Color(0xFF215FFF), Color(0xFF7FA6FF))))) {
+                        append(doctor.displayName)
+                    }
+                }
+            },
+            style = touchTitle1Bold.copy(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp),
+            color = DarwinTouchNeutral1000,
+        )
+        Text(
+            text = state.initialMessage?.text?.takeIf { it.isNotBlank() }
+                ?: "Add a patient and I'll bring up their earlier visits, or ask me anything clinical to get started.",
+            style = touchBodyRegular,
+            color = DarwinTouchNeutral600,
+            modifier = Modifier.padding(top = 6.dp, bottom = 20.dp),
+        )
         val suggestions = state.initialMessage?.suggestions.orEmpty()
         if (suggestions.isNotEmpty()) {
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 suggestions.forEach { s ->
                     val label = s.label ?: s.value ?: return@forEach
-                    Chip(label, enabled = state.connection == ConnectionStatus.CONNECTED) { onSuggestion(s.value ?: label) }
+                    StarterPill(label, enabled = state.connection == ConnectionStatus.CONNECTED) { onSuggestion(s.value ?: label) }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun StarterPill(label: String, enabled: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Text(
+        text = label,
+        style = touchCalloutRegular,
+        color = DarwinTouchPrimaryDark,
+        modifier = Modifier
+            .clip(shape)
+            .background(DarwinTouchPrimaryBgLight)
+            .border(1.dp, Color(0xFFC7D5FB), shape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .alpha(if (enabled) 1f else 0.6f)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
+}
+
+/** Time-of-day greeting, same cut-offs as web. */
+private fun greetingFor(hour: Int): String = when {
+    hour < 12 -> "Good morning"
+    hour < 17 -> "Good afternoon"
+    else -> "Good evening"
 }
 
 /** Header subtitle, same wording as the old socket states. */

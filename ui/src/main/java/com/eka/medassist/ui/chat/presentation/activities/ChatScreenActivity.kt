@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.eka.conversation.matrix.MatrixEnvironment
+import com.eka.medassist.ui.chat.client.MedAssistDoctor
 import com.eka.medassist.ui.chat.client.MedAssistPatient
 import com.eka.medassist.ui.chat.presentation.components.MedAssistChat
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
@@ -46,6 +47,10 @@ class ChatScreenActivity : ComponentActivity() {
             extraContext = intent.getStringExtra(ActivityParams.EXTRA_CONTEXT)
                 ?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() },
             chatScope = intent.getStringExtra(ActivityParams.CHAT_SCOPE),
+            doctor = intent.getStringExtra(ActivityParams.DOCTOR_FIRST_NAME)?.let {
+                MedAssistDoctor(firstName = it, salutation = intent.getStringExtra(ActivityParams.DOCTOR_SALUTATION))
+            },
+            readingLabel = intent.getStringExtra(ActivityParams.READING_LABEL),
         )
         setContent {
             MedAssistChat(args = args, onClose = { finish() })
@@ -69,6 +74,11 @@ class ChatScreenActivity : ComponentActivity() {
                 putExtra(ActivityParams.ENVIRONMENT, args.environment.name)
                 args.extraContext?.let { putExtra(ActivityParams.EXTRA_CONTEXT, it.toString()) }
                 putExtra(ActivityParams.CHAT_SCOPE, args.chatScope)
+                args.doctor?.let {
+                    putExtra(ActivityParams.DOCTOR_FIRST_NAME, it.firstName)
+                    putExtra(ActivityParams.DOCTOR_SALUTATION, it.salutation)
+                }
+                putExtra(ActivityParams.READING_LABEL, args.readingLabel)
             }
     }
 }

@@ -16,6 +16,7 @@ fun ConversationInput(
     onSend: () -> Unit,
     onAttach: () -> Unit,
     onRemoveAttachment: (MatrixFile) -> Unit,
+    readingLabel: String? = null,
 ) {
     val focusRequester = remember { FocusRequester() }
     DefaultInputComponent(
@@ -27,5 +28,6 @@ fun ConversationInput(
         onAttachClick = if (allowFiles) onAttach else null,
         attachments = attachments,
         onRemoveAttachment = onRemoveAttachment,
+        readingLabel = readingLabel,
     )
 }

@@ -15,4 +15,7 @@ object ActivityParams {
     const val ENVIRONMENT = "environment"
     const val EXTRA_CONTEXT = "extra_context"
     const val CHAT_SCOPE = "chat_scope"
+    const val DOCTOR_FIRST_NAME = "doctor_first_name"
+    const val DOCTOR_SALUTATION = "doctor_salutation"
+    const val READING_LABEL = "reading_label"
 }

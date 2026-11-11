@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -52,6 +53,8 @@ fun DefaultInputComponent(
     onAttachClick: (() -> Unit)? = null,
     attachments: List<MatrixFile> = emptyList(),
     onRemoveAttachment: (MatrixFile) -> Unit = {},
+    /** "Currently reading <label>" tab above the field. */
+    readingLabel: String? = null,
 ) {
     val hasContent = query.isNotBlank() || attachments.isNotEmpty()
     Column(
@@ -69,6 +72,10 @@ fun DefaultInputComponent(
             ) {
                 attachments.forEach { file -> FileChip(file) { onRemoveAttachment(file) } }
             }
+        }
+        readingLabel?.let {
+            // Drawn first, so the field covers its bottom edge
+            ReadingStrip(label = it, modifier = Modifier.offset(y = 10.dp))
         }
         TextField(
             modifier = Modifier

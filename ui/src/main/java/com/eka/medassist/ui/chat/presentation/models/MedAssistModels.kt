@@ -80,6 +80,8 @@ data class MedAssistUiState(
     val showExitFeedback: Boolean = false,
     val authExpired: Boolean = false,
     val patient: com.eka.medassist.ui.chat.client.MedAssistPatient? = null,
+    val doctor: com.eka.medassist.ui.chat.client.MedAssistDoctor? = null,
+    val readingLabel: String? = null,
 ) {
     /** Last message's last tool entry when it still accepts input (drives the composer swap). */
     val activeElicitation: Pair<String, ElicitationEntry>?

@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.eka.conversation.matrix.MatrixEnvironment
+import com.eka.medassist.ui.chat.client.MedAssistDoctor
 import com.eka.medassist.ui.chat.client.MedAssistPatient
 import com.eka.medassist.ui.chat.common.DoctorMerge
 import com.eka.medassist.ui.chat.data.MedAssistPrefs
@@ -61,6 +62,10 @@ data class MedAssistArgs(
     val title: String = "DocAssist",
     /** Patient in focus at start; the doctor can attach / change it from the chat. */
     val patient: MedAssistPatient? = null,
+    /** Signed-in doctor, greeted on the empty chat. */
+    val doctor: MedAssistDoctor? = null,
+    /** Document the chat is reading (e.g. a scribe note), shown above the input. */
+    val readingLabel: String? = null,
     /** Start a fresh chat instead of resuming the stored session. */
     val forceNewChat: Boolean = false,
     /** Open this past session instead of the stored one. */
@@ -86,7 +91,7 @@ data class MedAssistArgs(
 class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : AndroidViewModel(app) {
 
     private val prefs = MedAssistPrefs(app, args.agentId)
-    private val _state = MutableStateFlow(MedAssistUiState(title = args.title, patient = args.patient))
+    private val _state = MutableStateFlow(MedAssistUiState(title = args.title, patient = args.patient, doctor = args.doctor, readingLabel = args.readingLabel))
     val state: StateFlow<MedAssistUiState> = _state.asStateFlow()
     private val _toasts = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toasts: SharedFlow<String> = _toasts.asSharedFlow()
