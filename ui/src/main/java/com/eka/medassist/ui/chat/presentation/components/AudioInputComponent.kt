@@ -2,7 +2,6 @@ package com.eka.medassist.ui.chat.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,65 +13,34 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.eka.conversation.common.Response
 import com.eka.medassist.ui.R
-import com.eka.medassist.ui.chat.presentation.states.AudioInputState
-import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
+import com.eka.medassist.ui.chat.presentation.models.RecordingStatus
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral300
 import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
+/**
+ * Voice input: cancel, live waveform, send. After sending it shows "Converting to text..."
+ * until the server's transcript arrives.
+ */
 @Composable
 fun AudioInputComponent(
-    ekaChatViewModel: EkaChatViewModel,
-    onTranscriptionResult: (Response<String>) -> Unit,
+    status: RecordingStatus,
+    onSend: () -> Unit,
+    onCancel: () -> Unit,
 ) {
-    val keyboardController = LocalSoftwareKeyboardController.current
-    var audioInputState : AudioInputState by remember { mutableStateOf(AudioInputState.Idle) }
-    val currentTranscribedData by ekaChatViewModel.currentTranscribeData.collectAsState()
-
-    LaunchedEffect(Unit) {
-        keyboardController?.show()
-        audioInputState = AudioInputState.Recording
-        ekaChatViewModel.startAudioRecording(
-            onError = {
-                onTranscriptionResult(Response.Error(it))
-            }
-        )
-    }
-
-    LaunchedEffect(currentTranscribedData) {
-        when (currentTranscribedData) {
-            is Response.Loading -> {
-            }
-
-            is Response.Success -> {
-                onTranscriptionResult(currentTranscribedData)
-            }
-
-            is Response.Error -> {
-                onTranscriptionResult(currentTranscribedData)
-            }
-        }
-    }
-
+    val recording = status == RecordingStatus.LISTENING
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -88,23 +56,20 @@ fun AudioInputComponent(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Color.Black)
-                    .padding(8.dp),
+                    .background(if (recording) Color.Black else DarwinTouchNeutral300)
+                    .padding(10.dp),
                 content = {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(Color.White)
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xmark_regular),
+                        contentDescription = "Cancel recording",
+                        tint = Color.White
                     )
                 },
-                onClick = {
-                    audioInputState = AudioInputState.Loading
-                    ekaChatViewModel.stopRecording()
-                },
-                enabled = audioInputState is AudioInputState.Recording
+                onClick = onCancel,
+                enabled = recording
             )
 
-            if (audioInputState is AudioInputState.Recording) {
+            if (recording) {
                 AnimatedLoopingWaveformSmooth(
                     modifier = Modifier
                         .weight(1f)
@@ -113,8 +78,7 @@ fun AudioInputComponent(
                     color = DarwinTouchPrimary,
                     cycleDurationMs = 10000
                 )
-            }
-            if (audioInputState is AudioInputState.Loading) {
+            } else {
                 Text(
                     modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
                     text = "Converting to text...",
@@ -129,19 +93,17 @@ fun AudioInputComponent(
                     .rotate(90f)
                     .size(32.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Color.Black)
+                    .background(if (recording) Color.Black else DarwinTouchNeutral300)
                     .padding(8.dp),
                 content = {
                     Icon(
                         painter = painterResource(R.drawable.ic_arrow_left_regular),
-                        contentDescription = "Send Icon",
+                        contentDescription = "Send recording",
                         tint = Color.White
                     )
                 },
-                onClick = {
-                    audioInputState = AudioInputState.Loading
-                    ekaChatViewModel.stopRecording()
-                }
+                onClick = onSend,
+                enabled = recording
             )
         }
     )

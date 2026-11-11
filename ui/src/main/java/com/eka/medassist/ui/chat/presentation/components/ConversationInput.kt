@@ -8,85 +8,62 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalContext
-import com.eka.conversation.common.Response
-import com.eka.conversation.common.hasRecordAudioPermission
+import com.eka.conversation.matrix.media.MatrixFile
 import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
-import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
+import com.eka.medassist.ui.chat.presentation.models.RecordingStatus
 
+/** Switches between the text input and the voice input while a recording is in progress. */
 @Composable
 fun ConversationInput(
-    viewModel: EkaChatViewModel,
+    text: String,
+    onTextChange: (String) -> Unit,
     sendEnabled: Boolean,
-    askMicrophonePermission : () -> Unit,
+    recordingStatus: RecordingStatus,
+    allowAudio: Boolean,
+    allowFiles: Boolean,
+    attachments: List<MatrixFile>,
+    onSend: () -> Unit,
+    onAttach: () -> Unit,
+    onRemoveAttachment: (MatrixFile) -> Unit,
+    onMicrophoneClick: () -> Unit,
+    onStopRecording: () -> Unit,
+    onCancelRecording: () -> Unit,
 ) {
-    val state = viewModel.inputState.collectAsState().value
     val focusRequester = remember { FocusRequester() }
-    val context = LocalContext.current
+    val state = if (recordingStatus == RecordingStatus.IDLE) ConversationInputState.Default else ConversationInputState.Audio
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
     AnimatedContent(
         targetState = state,
         transitionSpec = {
             val enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
             val exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             enter togetherWith exit using SizeTransform(clip = false)
-        }
+        },
+        label = "conversation-input"
     ) {
         when (it) {
             is ConversationInputState.Default -> {
                 DefaultInputComponent(
                     focusRequester = focusRequester,
-                    input = viewModel.textInputState.collectAsState().value,
-                    onSend = { query ->
-                        viewModel.askNewQuery(query = query)
-                    },
-                    onMicrophoneClick = {
-                        if(!viewModel.sendButtonEnabled) {
-                            viewModel.showToast("Mic Disabled!")
-                            return@DefaultInputComponent
-                        }
-                        if(hasRecordAudioPermission(context = context)) {
-                            viewModel.setInputState(ConversationInputState.Audio)
-                        } else {
-                            askMicrophonePermission()
-                        }
-                    },
-                    onCancel = {
-
-                    },
-                    sendEnabled = sendEnabled
+                    query = text,
+                    onQueryChange = onTextChange,
+                    onSend = onSend,
+                    onMicrophoneClick = onMicrophoneClick,
+                    sendEnabled = sendEnabled,
+                    showMicrophone = allowAudio,
+                    onAttachClick = if (allowFiles) onAttach else null,
+                    attachments = attachments,
+                    onRemoveAttachment = onRemoveAttachment,
                 )
             }
 
             is ConversationInputState.Audio -> {
                 AudioInputComponent(
-                    ekaChatViewModel = viewModel,
-                    onTranscriptionResult = { response ->
-                        when (response) {
-                            is Response.Loading -> {
-                            }
-
-                            is Response.Success -> {
-                                val transcribedText = response.data.toString()
-                                viewModel.updateTextInputState(transcribedText)
-                                viewModel.clearRecording()
-                            }
-
-                            is Response.Error -> {
-                                val errorMsg = response.message.toString()
-                                viewModel.showToast(errorMsg)
-                                viewModel.clearRecording()
-                            }
-                        }
-                        viewModel.setInputState(ConversationInputState.Default)
-                    },
+                    status = recordingStatus,
+                    onSend = onStopRecording,
+                    onCancel = onCancelRecording,
                 )
             }
         }

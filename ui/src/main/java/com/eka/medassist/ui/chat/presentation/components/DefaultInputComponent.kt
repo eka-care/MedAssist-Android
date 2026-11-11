@@ -1,11 +1,15 @@
 package com.eka.medassist.ui.chat.presentation.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -14,11 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -29,114 +28,128 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.eka.conversation.matrix.media.MatrixFile
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral300
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral600
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral800
 import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
+/**
+ * Text input: attach (+) on the left, send / mic on the right, pending attachments above.
+ * The text is hoisted so a voice transcript or a reset can drive it.
+ */
 @Composable
 fun DefaultInputComponent(
     focusRequester: FocusRequester,
-    input: String,
-    onSend: (String) -> Unit,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSend: () -> Unit,
     onMicrophoneClick: () -> Unit,
-    onCancel: () -> Unit,
     sendEnabled: Boolean = true,
+    showMicrophone: Boolean = true,
+    onAttachClick: (() -> Unit)? = null,
+    attachments: List<MatrixFile> = emptyList(),
+    onRemoveAttachment: (MatrixFile) -> Unit = {},
 ) {
-    var query by remember { mutableStateOf("") }
-
-    LaunchedEffect(input) {
-        if (isSafeInput(input)) {
-            query = input
-        }
-    }
-
-    TextField(
+    val hasContent = query.isNotBlank() || attachments.isNotEmpty()
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .focusRequester(focusRequester)
             .navigationBarsPadding()
-            .padding(16.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = DarwinTouchNeutral0,
-            unfocusedContainerColor = DarwinTouchNeutral0,
-            disabledContainerColor = DarwinTouchNeutral0,
-            disabledIndicatorColor = DarwinTouchNeutral0,
-            focusedTextColor = DarwinTouchNeutral1000,
-            focusedIndicatorColor = DarwinTouchNeutral0,
-            unfocusedIndicatorColor = DarwinTouchNeutral0,
-            cursorColor = DarwinTouchPrimary
-        ),
-        enabled = sendEnabled,
-        textStyle = touchBodyRegular,
-        value = query,
-        onValueChange = { newValue ->
-            query = newValue
-        },
-        keyboardOptions = KeyboardOptions.Default.copy(
-            capitalization = KeyboardCapitalization.Sentences
-        ),
-        placeholder = {
-            Text(
-                text = stringResource(id = R.string.start_new_chat),
-                style = touchBodyRegular,
-                color = DarwinTouchNeutral600
-            )
-        },
-        trailingIcon = {
-            if (!sendEnabled) {
-                IconButton(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.Black)
-                        .padding(8.dp),
-                    content = {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color.White)
-                        )
-                    },
-                    onClick = onCancel
+            .padding(16.dp)
+    ) {
+        if (attachments.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                attachments.forEach { file -> FileChip(file) { onRemoveAttachment(file) } }
+            }
+        }
+        TextField(
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
+            shape = RoundedCornerShape(24.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = DarwinTouchNeutral0,
+                unfocusedContainerColor = DarwinTouchNeutral0,
+                disabledContainerColor = DarwinTouchNeutral0,
+                disabledIndicatorColor = DarwinTouchNeutral0,
+                focusedTextColor = DarwinTouchNeutral1000,
+                focusedIndicatorColor = DarwinTouchNeutral0,
+                unfocusedIndicatorColor = DarwinTouchNeutral0,
+                cursorColor = DarwinTouchPrimary
+            ),
+            textStyle = touchBodyRegular,
+            value = query,
+            onValueChange = onQueryChange,
+            maxLines = 5,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                capitalization = KeyboardCapitalization.Sentences
+            ),
+            placeholder = {
+                Text(
+                    text = stringResource(id = R.string.start_new_chat),
+                    style = touchBodyRegular,
+                    color = DarwinTouchNeutral600
                 )
-            } else {
-                if (query.isNotBlank()) {
+            },
+            leadingIcon = onAttachClick?.let { attach ->
+                {
+                    IconButton(onClick = attach, enabled = sendEnabled) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_plus_regular),
+                            contentDescription = "Attach",
+                            tint = if (sendEnabled) DarwinTouchNeutral800 else DarwinTouchNeutral300,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            },
+            trailingIcon = {
+                if (hasContent || !showMicrophone) {
                     InputIcon(
                         modifier = Modifier.rotate(90f),
                         icon = R.drawable.ic_arrow_left_regular,
+                        enabled = sendEnabled && hasContent,
                         onClick = {
-                            onSend(query.trim())
-                            query = ""
+                            onSend()
                             focusRequester.freeFocus()
                         }
                     )
                 } else {
                     InputIcon(
                         icon = R.drawable.ic_microphone_regular,
+                        enabled = sendEnabled,
                         onClick = onMicrophoneClick
                     )
                 }
             }
-        }
-    )
+        )
+    }
 }
 
 @Composable
 private fun InputIcon(
     modifier: Modifier = Modifier,
     icon: Int,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     IconButton(
         modifier = modifier
             .size(32.dp)
             .clip(RoundedCornerShape(50))
-            .background(Color.Black)
+            .background(if (enabled) Color.Black else DarwinTouchNeutral300)
             .padding(8.dp),
+        enabled = enabled,
         content = {
             Icon(
                 painter = painterResource(icon),
@@ -146,8 +159,4 @@ private fun InputIcon(
         },
         onClick = onClick,
     )
-}
-
-private fun isSafeInput(input: String): Boolean {
-    return !Regex("<[^>]*>").containsMatchIn(input)
 }

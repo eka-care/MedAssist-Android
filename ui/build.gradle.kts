@@ -47,7 +47,7 @@ afterEvaluate {
 
                 groupId = "com.eka"
                 artifactId = "medassist"
-                version = "1.0.0"
+                version = "2.0.0"
             }
         }
     }
@@ -70,7 +70,11 @@ dependencies {
     implementation(libs.google.gson)
     implementation(libs.androidx.fonts)
     implementation(libs.compose.markdown)
-    api(libs.ai.chat)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    // Matrix (MedAssist) client - eka-care/ai-chat module :matrix
+    api(libs.ai.chat.matrix)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

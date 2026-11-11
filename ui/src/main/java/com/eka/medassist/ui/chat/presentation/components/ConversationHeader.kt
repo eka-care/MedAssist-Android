@@ -20,7 +20,9 @@ fun ConversationHeader(
     subTitle: String? = null,
     newChatEnabled : Boolean = true,
     onBackClick : () -> Unit,
-    onNewClick : () -> Unit ?= {}
+    onNewClick : () -> Unit = {},
+    /** Shows the chat-history action when set. */
+    onHistoryClick: (() -> Unit)? = null,
 ) {
     AppBar(
         borderColor = Color.Transparent,
@@ -43,13 +45,20 @@ fun ConversationHeader(
             )
         },
         actions = {
+            if (onHistoryClick != null) {
+                IconButtonWrapper(
+                    icon = R.drawable.ic_messages_regular,
+                    iconSize = 16.dp,
+                    onClick = onHistoryClick,
+                    contentDescription = "Chat history"
+                )
+            }
             if(newChatEnabled) {
                 IconButtonWrapper(
                     icon = R.drawable.ic_outline_add_2,
                     iconSize = 16.dp,
-                    onClick =  {
-                      onNewClick.invoke()},
-                     contentDescription = "New Chat"
+                    onClick = onNewClick,
+                    contentDescription = "New Chat"
                 )
             }
         }
