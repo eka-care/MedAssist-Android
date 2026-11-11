@@ -41,6 +41,13 @@ import com.eka.medassist.ui.chat.presentation.models.VoiceStatus
 import com.eka.conversation.matrix.media.AudioMessageRecorder
 import com.eka.conversation.matrix.media.AudioPayload
 import kotlinx.coroutines.CancellationException
+import com.eka.medassist.ui.chat.common.Outbox
+import com.eka.medassist.ui.chat.common.SilenceDetector
+import com.eka.medassist.ui.chat.data.ChatCache
+import com.eka.medassist.ui.chat.presentation.models.Delivery
+import com.eka.conversation.matrix.AgentConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -113,11 +120,45 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     /** A reply was pending when the network dropped, so that message was likely lost. */
     private var lostWhileWaiting = false
 
+    /** Recent chats, history and agent config on the phone: instant open, last chat offline. */
+    private val cache = ChatCache(app, args.agentId)
+
+    /** Messages to send once connected: typed offline, or one lost to a drop (resent once). */
+    private val outbox = Outbox<SendOptions>()
+
+    /** Last text/file message sent, for one automatic resend if the connection drops before the reply. */
+    private var lastSent: Pair<String, SendOptions>? = null
+
+    /** After Stop, the rest of the cut-off reply is ignored until the stream reconnects. */
+    private var stoppingReply = false
+
+    private var sentAt = 0L
+    private var awaitingFirstToken = false
+
+    private val pendingEvents = mutableListOf<Pair<String, Map<String, Any?>>>()
+
+    /** Host analytics sink: ("medassist_<event>", params). Events before it's set are kept and replayed. */
+    var analytics: ((String, Map<String, Any?>) -> Unit)? = null
+        set(value) {
+            field = value
+            if (value != null && pendingEvents.isNotEmpty()) {
+                pendingEvents.forEach { (n, p) -> value(n, p) }
+                pendingEvents.clear()
+            }
+        }
+
+    private fun track(event: String, vararg params: Pair<String, Any?>) {
+        val name = "medassist_$event"
+        val p = mapOf(*params) + ("scope" to (args.chatScope?.substringBefore(':') ?: "docassist"))
+        analytics?.invoke(name, p) ?: pendingEvents.add(name to p)
+    }
+
     init {
         // A different doctor (or a re-login) must not resume someone else's Matrix identity.
         val tokenFingerprint = args.authToken?.hashCode()?.toString()
         if (prefs.lastAuthToken != tokenFingerprint) {
             prefs.clearUser()
+            cache.clear()
             prefs.lastAuthToken = tokenFingerprint
         }
         if (args.forceNewChat) clearStoredSession()
@@ -139,20 +180,41 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
         viewModelScope.launch { client.events.collect(::onEvent) }
         viewModelScope.launch { client.errors.collect(::onError) }
+        track("chat_opened", "has_patient" to (args.patient != null))
         viewModelScope.launch {
-            val cfg = client.getAgentConfig()
-            _state.update {
-                it.copy(
-                    agentConfig = cfg,
-                    title = args.title.ifBlank { cfg?.theme?.title ?: cfg?.name ?: "DocAssist" },
-                    initialMessage = it.initialMessage ?: cfg?.initialMessage,
-                )
+            // Last agent config on the phone first: greeting and pills show at once, the session
+            // starts in parallel, and the fresh config replaces the cached one when it lands.
+            val cached = withContext(Dispatchers.IO) { cache.loadAgentConfigBlocking() }
+            if (cached != null) {
+                client.primeAgentConfig(cached)
+                applyAgentConfig(cached)
+                startInitialSession()
+                client.fetchAgentConfig()?.let { fresh ->
+                    applyAgentConfig(fresh)
+                    cache.saveAgentConfig(fresh)
+                }
+            } else {
+                val cfg = client.getAgentConfig()
+                applyAgentConfig(cfg)
+                cfg?.let { cache.saveAgentConfig(it) }
+                startInitialSession()
             }
-            if (args.sessionId != null) startSession(sessionId = args.sessionId) else startSession()
         }
     }
 
     // ================================================================== session
+
+    private fun applyAgentConfig(cfg: AgentConfig?) = _state.update {
+        it.copy(
+            agentConfig = cfg ?: it.agentConfig,
+            title = args.title.ifBlank { cfg?.theme?.title ?: cfg?.name ?: "DocAssist" },
+            initialMessage = it.initialMessage ?: cfg?.initialMessage,
+        )
+    }
+
+    private fun startInitialSession() {
+        if (args.sessionId != null) startSession(sessionId = args.sessionId) else startSession()
+    }
 
     /**
      * One session switch at a time: a newer one (new chat, history pick, patient change) cancels
@@ -179,6 +241,9 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                         sessionId = null, isStreaming = false, isWaitingForResponse = false, progressMessage = null)
                 }
                 clearStoredSession()
+                outbox.clear()
+                lastSent = null
+                stoppingReply = false
                 client.endSession()
                 resetConnectionStates()
                 fileUploadsThisSession = 0
@@ -188,6 +253,9 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             val active = _state.value.sessionId ?: storedSessionId
             val target = sessionId ?: active
             if (target != _state.value.sessionId) {
+                outbox.clear()
+                lastSent = null
+                stoppingReply = false
                 client.endSession()
                 _state.update { it.copy(messages = emptyList(), elicitations = emptyMap()) }
                 fileUploadsThisSession = 0
@@ -202,7 +270,9 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             _state.update { it.copy(connection = ConnectionStatus.CONNECTING) }
         }
         try {
+            val t0 = System.currentTimeMillis()
             val session = client.startSession(existing)
+            track("session_started", "resumed" to (existing != null), "ms" to (System.currentTimeMillis() - t0))
             storedSessionId = session.sessionId
             session.userId?.let { prefs.userId = it }
             _state.update {
@@ -227,18 +297,29 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     /** Server transcript of a past session, flattened the same way as the widget's restoreTranscript. */
     private suspend fun loadSessionMessages(sessionId: String) {
-        _state.update { it.copy(isLoadingSessionMessages = true) }
+        // The phone's copy shows at once (also offline); the server's replaces it when it lands
+        val cached = cache.loadMessages(sessionId)
+        if (cached.isNullOrEmpty()) _state.update { it.copy(isLoadingSessionMessages = true) }
+        else _state.update { it.copy(messages = cached) }
         try {
             val stored = client.sessionMessages(sessionId)
             val (messages, entries) = restoreTranscript(stored)
-            _state.update { it.copy(messages = messages, elicitations = it.elicitations + entries) }
+            if (messages.isNotEmpty() || cached.isNullOrEmpty()) {
+                _state.update { it.copy(messages = messages, elicitations = it.elicitations + entries) }
+                cache.saveMessages(sessionId, messages)
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Throwable) {
         } finally {
             _state.update { it.copy(isLoadingSessionMessages = false) }
         }
     }
 
-    fun startNewChat() = startSession(forceNewSession = true)
+    fun startNewChat() {
+        track("new_chat")
+        startSession(forceNewSession = true)
+    }
 
     /**
      * Attach, change or remove (null) the patient. Matrix fixes context when a session is
@@ -246,6 +327,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
      */
     fun attachPatient(patient: MedAssistPatient?) {
         if (patient == _state.value.patient) return
+        track(if (patient != null) "patient_attached" else "patient_removed")
         _state.update { it.copy(patient = patient) }
         client.updateContext(buildContext(patient))
         startNewChat()
@@ -281,11 +363,25 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     fun openPastSession(sessionId: String) = startSession(sessionId = sessionId)
 
     fun loadPastSessions() {
+        track("history_opened")
         viewModelScope.launch {
             _state.update { it.copy(isLoadingHistory = true) }
-            val list = try { client.pastSessions() } catch (_: Throwable) { emptyList() }
-            _state.update { it.copy(pastSessions = list, isLoadingHistory = false) }
+            if (_state.value.pastSessions.isEmpty()) {
+                cache.loadPastSessions()?.let { cached -> _state.update { it.copy(pastSessions = cached) } }
+            }
+            val list = try { client.pastSessions() } catch (e: CancellationException) { throw e } catch (_: Throwable) { null }
+            if (list != null) {
+                _state.update { it.copy(pastSessions = list) }
+                cache.savePastSessions(list)
+            }
+            _state.update { it.copy(isLoadingHistory = false) }
         }
+    }
+
+    private fun persistChat() {
+        val sid = _state.value.sessionId ?: return
+        val messages = _state.value.messages
+        viewModelScope.launch { cache.saveMessages(sid, messages) }
     }
 
     fun onForeground() = client.onForeground()
@@ -302,6 +398,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         val isNewLogin = t.userId != null && previous != null && t.userId != previous
         if (isNewLogin || t.userIdChangeDetected == true) {
             prefs.clearAllSessions()
+            cache.clear()
             _state.update { it.copy(messages = emptyList(), elicitations = emptyMap(), sessionId = null) }
         }
         prefs.saveTokens(t)
@@ -310,6 +407,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     // ================================================================== errors
 
     private fun onError(e: MatrixError) {
+        track("error", "kind" to e.code.name.lowercase(), "status" to e.status)
         if (!isOnline()) {
             _state.update {
                 it.copy(connection = ConnectionStatus.NOT_CONNECTED,
@@ -321,6 +419,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             RecoveryReason.SESSION_FORBIDDEN -> {
                 if (prefs.level != "user") {
                     prefs.clearUser()
+                    cache.clear()
                     client.clearTokens()
                     handleStartNewConnection()
                 } else handleTerminalAuthFailure()
@@ -359,6 +458,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     private fun handleTerminalAuthFailure() {
         prefs.clearUser()
+        cache.clear()
         _state.update {
             it.copy(connection = ConnectionStatus.NOT_CONNECTED, authExpired = true,
                 error = UiError("Session expired", "Your session has expired. Please close and reopen DocAssist."))
@@ -390,9 +490,8 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             } else {
                 _state.update { it.copy(connection = ConnectionStatus.CONNECTED, error = null, showRetry = false) }
                 val last = _state.value.messages.lastOrNull()
-                if (last != null && last.role == Role.USER) {
-                    client.sendMessage(OutgoingRequest(message = last.content, files = last.files.ifEmpty { null }))
-                    setWaiting(true)
+                if (last != null && last.role == Role.USER && !last.isAudio) {
+                    sendMessage(SendOptions(message = last.content, files = last.files.ifEmpty { null }, shownMessageId = last.id))
                 }
             }
         }
@@ -401,6 +500,10 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     // ================================================================== realtime events
 
     private fun onEvent(event: MatrixEvent) {
+        if (stoppingReply && (event is MatrixEvent.MessageChunk || event == MatrixEvent.EndOfStream ||
+                event is MatrixEvent.ToolCall || event is MatrixEvent.Progress || event is MatrixEvent.Tips ||
+                event is MatrixEvent.ToolStart || event is MatrixEvent.ToolEnd)
+        ) return
         // Any answer to a voice message ends its "transcribing" state
         when (event) {
             is MatrixEvent.MessageChunk, MatrixEvent.EndOfStream, is MatrixEvent.ToolCall,
@@ -417,16 +520,31 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 hadStreamBreak = false
                 _state.update { it.copy(isStreaming = false, progressMessage = null) }
                 setWaiting(false)
+                if (sentAt > 0) track("reply_done", "ms" to (System.currentTimeMillis() - sentAt))
+                sentAt = 0
+                lastSent = null
+                persistChat()
+                flushOutbox()
             }
             MatrixEvent.Connected -> {
                 resetConnectionStates()
                 _state.update { it.copy(connection = ConnectionStatus.CONNECTED, offline = false) }
+                stoppingReply = false
                 if (lostWhileWaiting) {
                     lostWhileWaiting = false
-                    _state.update {
-                        it.copy(error = UiError("Message not delivered", "You went offline before the reply. Tap Retry to send it again."), showRetry = true)
+                    val lost = lastSent
+                    if (lost != null && outbox.addRetry(lost.first, lost.second.copy(shownMessageId = lost.first))) {
+                        // Resend the lost message once, on its own
+                        markDelivery(lost.first, Delivery.QUEUED)
+                        track("auto_resend")
+                    } else {
+                        lost?.first?.let { markDelivery(it, Delivery.FAILED) }
+                        _state.update {
+                            it.copy(error = UiError("Message not delivered", "You went offline before the reply. Tap Retry to send it again."), showRetry = true)
+                        }
                     }
                 }
+                flushOutbox()
             }
             MatrixEvent.Offline -> {
                 val s = _state.value
@@ -460,6 +578,10 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     }
 
     private fun onChunk(e: MatrixEvent.MessageChunk) {
+        if (awaitingFirstToken && sentAt > 0) {
+            awaitingFirstToken = false
+            track("first_token", "ms" to (System.currentTimeMillis() - sentAt))
+        }
         if (!_state.value.isStreaming) {
             _state.update { it.copy(isStreaming = true, isWaitingForResponse = false) }
             responseTimeoutJob?.cancel()
@@ -533,6 +655,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     }
 
     private fun onRealtimeError(code: String?) {
+        track("error", "kind" to "realtime", "code" to code)
         when (code) {
             RealtimeErrorCodes.SESSION_INACTIVE -> _state.update { it.copy(startNewConnection = true) }
             RealtimeErrorCodes.SESSION_TOKEN_MISMATCH -> _state.update {
@@ -736,18 +859,34 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
         if (!o.message.isNullOrEmpty() || !o.files.isNullOrEmpty() || o.audio != null || pillMessage != null || toolCallErrorMessage != null) {
             if (!isElicitation) {
-                _state.update { s ->
-                    val prefix = if (s.messages.isEmpty() && !s.initialMessage?.text.isNullOrBlank())
-                        listOf(ChatUiMessage(INITIAL_BOT_MESSAGE_ID, s.initialMessage?.text.orEmpty(), Role.ASSISTANT)) else emptyList()
-                    s.copy(messages = s.messages + prefix + ChatUiMessage(
-                        id = System.currentTimeMillis().toString(),
-                        content = pillMessage ?: toolCallErrorMessage ?: o.message.orEmpty(),
-                        role = Role.USER,
-                        files = o.files.orEmpty(),
-                        isAudio = o.audio != null,
-                    ))
+                val bubbleId = o.shownMessageId ?: System.currentTimeMillis().toString()
+                if (o.shownMessageId != null) {
+                    markDelivery(bubbleId, Delivery.SENT)
+                } else {
+                    _state.update { s ->
+                        val prefix = if (s.messages.isEmpty() && !s.initialMessage?.text.isNullOrBlank())
+                            listOf(ChatUiMessage(INITIAL_BOT_MESSAGE_ID, s.initialMessage?.text.orEmpty(), Role.ASSISTANT)) else emptyList()
+                        s.copy(messages = s.messages + prefix + ChatUiMessage(
+                            id = bubbleId,
+                            content = pillMessage ?: toolCallErrorMessage ?: o.message.orEmpty(),
+                            role = Role.USER,
+                            files = o.files.orEmpty(),
+                            isAudio = o.audio != null,
+                        ))
+                    }
                 }
+                // Kept for one automatic resend if the connection drops before the reply
+                lastSent = if (o.audio == null && !o.toolCalled && pillMessage == null) bubbleId to o.copy(shownMessageId = null) else null
+                sentAt = System.currentTimeMillis()
+                awaitingFirstToken = true
+                track(
+                    "message_sent",
+                    "type" to when { o.audio != null -> "voice"; !o.files.isNullOrEmpty() -> "attachment"; else -> "text" },
+                    "files" to (o.files?.size ?: 0),
+                    "queued" to (o.shownMessageId != null),
+                )
                 setWaiting(true)
+                persistChat()
             }
         }
 
@@ -796,6 +935,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     // ================================================================== feedback
 
     fun sendMessageFeedback(messageId: String, feedback: String, reason: String? = null) {
+        track("feedback", "value" to feedback)
         _state.update { s -> s.copy(messages = s.messages.map { if (it.id == messageId) it.copy(feedback = feedback) else it }) }
         if (!client.isConnected()) return
         viewModelScope.launch { try { client.sendMessageFeedback(messageId, feedback, reason) } catch (_: Throwable) {} }
@@ -860,7 +1000,8 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     fun setPreparingAttachments(preparing: Boolean) = _state.update { it.copy(preparingAttachments = preparing) }
 
     /** Adds what fits and says what didn't (unreadable, or over the per-message limit). */
-    fun addPickedAttachments(files: List<MatrixFile>, unreadable: Int = 0) {
+    fun addPickedAttachments(files: List<MatrixFile>, unreadable: Int = 0, source: String = "files") {
+        track("attachment_added", "source" to source, "count" to files.size, "failed" to unreadable)
         val room = attachmentSlotsLeft()
         val fits = files.take(room)
         if (fits.isNotEmpty()) addAttachments(fits)
@@ -877,27 +1018,91 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     /** Composer send; false (text stays in the box) when it can't go out right now. */
     fun sendComposer(text: String, toolKey: String? = null, toolCalled: Boolean = false): Boolean {
         val atts = _state.value.attachments
-        if (!isOnline()) {
-            _state.update {
-                it.copy(
-                    offline = true,
-                    connection = if (it.connection == ConnectionStatus.CONNECTED) ConnectionStatus.NOT_CONNECTED else it.connection,
-                    error = UiError("No internet connection", "Your message wasn't sent. Send it again when you're back online."),
-                    showRetry = false,
-                )
-            }
-            return false
-        }
         if (_state.value.isComposerDisabled) return false
-        if (atts.isNotEmpty()) {
-            _state.update { it.copy(attachments = emptyList()) }
-            sendMessage(SendOptions(message = text.trim(), files = atts))
-        } else if (text.isNotBlank()) {
-            sendMessage(SendOptions(message = text.trim(), toolKey = toolKey, toolCalled = toolCalled))
-        } else {
-            return false
+        val options = when {
+            atts.isNotEmpty() -> SendOptions(message = text.trim(), files = atts)
+            text.isNotBlank() -> SendOptions(message = text.trim(), toolKey = toolKey, toolCalled = toolCalled)
+            else -> return false
         }
+        if (atts.isNotEmpty()) _state.update { it.copy(attachments = emptyList()) }
+        if (isLive()) sendMessage(options) else queueMessage(options)
         return true
+    }
+
+    private fun isLive() = isOnline() && _state.value.connection == ConnectionStatus.CONNECTED && client.isConnected()
+
+    /** Offline / connecting: show the message as "Waiting to send" and send it once connected. */
+    private fun queueMessage(o: SendOptions) {
+        val id = "local-${System.currentTimeMillis()}"
+        _state.update { s ->
+            val prefix = if (s.messages.isEmpty() && !s.initialMessage?.text.isNullOrBlank())
+                listOf(ChatUiMessage(INITIAL_BOT_MESSAGE_ID, s.initialMessage?.text.orEmpty(), Role.ASSISTANT)) else emptyList()
+            s.copy(
+                messages = s.messages + prefix + ChatUiMessage(
+                    id = id, content = o.message.orEmpty(), role = Role.USER, files = o.files.orEmpty(), delivery = Delivery.QUEUED,
+                ),
+                offline = s.offline || !isOnline(),
+            )
+        }
+        outbox.add(id, o.copy(shownMessageId = id))
+        track("message_queued", "outbox" to outbox.size)
+    }
+
+    /** Next waiting message, once connected and the previous reply is done. */
+    private fun flushOutbox() {
+        val s = _state.value
+        if (outbox.isEmpty() || !isLive() || s.isStreaming || s.isWaitingForResponse) return
+        val (_, options) = outbox.next() ?: return
+        sendMessage(options)
+    }
+
+    private fun markDelivery(messageId: String, delivery: Delivery) = _state.update { s ->
+        s.copy(messages = s.messages.map { if (it.id == messageId) it.copy(delivery = delivery) else it })
+    }
+
+    /** "Not sent - tap to retry" on a failed bubble. */
+    fun retryMessage(message: ChatUiMessage) {
+        if (message.role != Role.USER || message.isAudio) return
+        track("retry_message")
+        val options = SendOptions(message = message.content, files = message.files.ifEmpty { null }, shownMessageId = message.id)
+        if (isLive() && !_state.value.isComposerDisabled) sendMessage(options)
+        else {
+            markDelivery(message.id, Delivery.QUEUED)
+            outbox.add(message.id, options)
+        }
+    }
+
+    /** Long-press "Resend": the same text/files again as a new message. */
+    fun resend(message: ChatUiMessage) {
+        if (message.role != Role.USER || message.isAudio || _state.value.isComposerDisabled) return
+        track("resend")
+        val options = SendOptions(message = message.content, files = message.files.ifEmpty { null })
+        if (isLive()) sendMessage(options) else queueMessage(options)
+    }
+
+    fun trackEdit() = track("edit")
+
+    /**
+     * Stop: cut the reply short, keep what arrived, mark it stopped. Matrix has no stop event,
+     * so the stream is closed and the same chat reconnected (the web SDK does the same).
+     */
+    fun stopReply() {
+        if (!_state.value.canStop) return
+        stoppingReply = true
+        streamIdleJob?.cancel()
+        responseTimeoutJob?.cancel()
+        hadStreamBreak = false
+        lostWhileWaiting = false
+        lastSent = null
+        _state.update { s ->
+            val last = s.messages.lastOrNull()
+            val messages = if (last != null && last.role == Role.ASSISTANT && s.isStreaming) s.messages.dropLast(1) + last.copy(stopped = true) else s.messages
+            s.copy(messages = messages, isStreaming = false, isWaitingForResponse = false, progressMessage = null)
+        }
+        track("reply_stopped", "ms" to (if (sentAt > 0) System.currentTimeMillis() - sentAt else 0))
+        sentAt = 0
+        persistChat()
+        switchSession { client.stopReply() }
     }
 
     // ================================================================== helpers
@@ -968,8 +1173,8 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     fun startVoiceInput() {
         val s = _state.value
         if (s.voiceStatus != VoiceStatus.IDLE || recorder.isRecording) return
-        if (s.isComposerDisabled) {
-            _toasts.tryEmit(if (s.connection != ConnectionStatus.CONNECTED) "Not connected yet. Please try again in a moment." else "Wait for the reply to finish.")
+        if (!s.canSendLive) {
+            _toasts.tryEmit(if (s.connection != ConnectionStatus.CONNECTED) "Voice needs a connection. Please try again in a moment." else "Wait for the reply to finish.")
             return
         }
         val startedAt = System.currentTimeMillis()
@@ -986,13 +1191,55 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             },
         )
         if (recorder.isRecording) {
-            _state.update { it.copy(voiceStatus = VoiceStatus.LISTENING, voiceStartedAt = startedAt) }
+            _state.update { it.copy(voiceStatus = VoiceStatus.LISTENING, voiceStartedAt = startedAt, voiceLevels = emptyList()) }
+            track("voice_started")
+            startVoiceMeter()
+        }
+    }
+
+    private var voiceMeterJob: Job? = null
+    private var voiceDetector = SilenceDetector()
+
+    /** Live waveform from the mic level; ends the clip after the doctor stops talking. */
+    private fun startVoiceMeter() {
+        voiceDetector = SilenceDetector(speechLevel = SPEECH_LEVEL)
+        voiceMeterJob?.cancel()
+        voiceMeterJob = viewModelScope.launch {
+            while (_state.value.voiceStatus == VoiceStatus.LISTENING) {
+                delay(100)
+                val amp = recorder.maxAmplitude()
+                _state.update { it.copy(voiceLevels = (it.voiceLevels + SilenceDetector.level(amp)).takeLast(48)) }
+                when (voiceDetector.onSample(amp, System.currentTimeMillis())) {
+                    SilenceDetector.Verdict.SPEECH_ENDED -> {
+                        track("voice_auto_stopped")
+                        finishVoiceInput()
+                        return@launch
+                    }
+                    SilenceDetector.Verdict.NO_SPEECH -> {
+                        cancelVoiceInput()
+                        _toasts.tryEmit("Couldn't hear you. Check the mic and try again.")
+                        track("voice_no_speech")
+                        return@launch
+                    }
+                    SilenceDetector.Verdict.KEEP_LISTENING -> Unit
+                }
+            }
         }
     }
 
     /** Stop listening and send the clip (also called by the recorder's 15-minute cap). */
     fun finishVoiceInput() {
         if (_state.value.voiceStatus != VoiceStatus.LISTENING) return
+        voiceMeterJob?.cancel()
+        if (!voiceDetector.heardSpeech) {
+            // Nothing loud enough was said: don't send silence
+            recorder.cancel()
+            setVoiceIdle()
+            _toasts.tryEmit("Couldn't hear you. Speak a little louder and try again.")
+            track("voice_no_speech")
+            return
+        }
+        track("voice_sent", "ms" to (System.currentTimeMillis() - _state.value.voiceStartedAt))
         recorder.stop()
     }
 
@@ -1060,13 +1307,16 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     /** Drop a recording in progress (cancel tapped, app backgrounded, new chat). A sent clip can't be recalled. */
     fun cancelVoiceInput() {
         if (_state.value.voiceStatus != VoiceStatus.LISTENING) return
+        voiceMeterJob?.cancel()
         recorder.cancel()
         setVoiceIdle()
+        track("voice_cancelled")
     }
 
-    private fun setVoiceIdle() = _state.update { it.copy(voiceStatus = VoiceStatus.IDLE) }
+    private fun setVoiceIdle() = _state.update { it.copy(voiceStatus = VoiceStatus.IDLE, voiceLevels = emptyList()) }
 
     override fun onCleared() {
+        voiceMeterJob?.cancel()
         recorder.cancel()
         voiceTimeoutJob?.cancel()
         client.destroy()
@@ -1081,6 +1331,8 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     companion object {
         /** Shorter than this is treated as an accidental tap. */
         private const val MIN_VOICE_MS = 700L
+        /** Mic amplitude that counts as speech (0..32767). */
+        private const val SPEECH_LEVEL = 1_800
         private const val VOICE_TIMEOUT_MS = 30_000L
         const val INITIAL_BOT_MESSAGE_ID = "initial-bot-message"
         private const val STREAM_IDLE_TIMEOUT_MS = 30_000L

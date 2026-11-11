@@ -3,6 +3,7 @@ package com.eka.medassist.ui.chat.presentation.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,6 +65,8 @@ fun DefaultInputComponent(
     onMicrophoneClick: (() -> Unit)? = null,
     /** Picked files are being read / resized: spinner in place of +. */
     preparingAttachments: Boolean = false,
+    /** A reply is coming: Stop replaces send (and the mic). */
+    onStop: (() -> Unit)? = null,
 ) {
     val hasContent = query.isNotBlank() || attachments.isNotEmpty()
     Column(
@@ -133,6 +136,21 @@ fun DefaultInputComponent(
             },
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onStop != null) {
+                        // Black circle with a white square, as in the original MedAssist input
+                        IconButton(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Color.Black)
+                                .padding(10.dp),
+                            onClick = onStop,
+                        ) {
+                            Box(modifier = Modifier.size(10.dp).background(Color.White, RoundedCornerShape(2.dp)))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        return@Row
+                    }
                     onMicrophoneClick?.let { mic ->
                         IconButton(onClick = mic) {
                             Icon(

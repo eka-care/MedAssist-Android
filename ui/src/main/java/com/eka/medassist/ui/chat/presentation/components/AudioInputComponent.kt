@@ -1,6 +1,10 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -46,6 +50,8 @@ import kotlinx.coroutines.delay
 fun AudioInputComponent(
     status: VoiceStatus,
     startedAt: Long,
+    /** Recent mic levels 0..1 (oldest first): the waveform follows the voice. */
+    levels: List<Float> = emptyList(),
     onDone: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -80,13 +86,13 @@ fun AudioInputComponent(
         }
 
         if (listening) {
-            AnimatedLoopingWaveformSmooth(
+            LiveWaveform(
+                levels = levels,
                 modifier = Modifier
                     .weight(1f)
                     .height(32.dp)
                     .padding(horizontal = 8.dp),
                 color = DarwinTouchPrimary,
-                cycleDurationMs = 10000
             )
             Text(
                 text = "%d:%02d".format(elapsedMs / 60_000, (elapsedMs / 1000) % 60),
@@ -115,6 +121,26 @@ fun AudioInputComponent(
             onClick = onDone,
         ) {
             Icon(painterResource(R.drawable.ic_check_regular), contentDescription = "Send voice message", tint = Color.White)
+        }
+    }
+}
+
+/** Bars for the latest mic levels, newest on the right; flat bars while quiet. */
+@Composable
+private fun LiveWaveform(levels: List<Float>, modifier: Modifier, color: Color, bars: Int = 32) {
+    Canvas(modifier = modifier) {
+        val shown = levels.takeLast(bars)
+        val padded = List(bars - shown.size) { 0.05f } + shown
+        val gap = 2.dp.toPx()
+        val barWidth = ((size.width - gap * (bars - 1)) / bars).coerceAtLeast(1f)
+        padded.forEachIndexed { i, level ->
+            val h = (size.height * level.coerceIn(0.05f, 1f)).coerceAtLeast(2.dp.toPx())
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(i * (barWidth + gap), (size.height - h) / 2),
+                size = Size(barWidth, h),
+                cornerRadius = CornerRadius(barWidth / 2, barWidth / 2),
+            )
         }
     }
 }

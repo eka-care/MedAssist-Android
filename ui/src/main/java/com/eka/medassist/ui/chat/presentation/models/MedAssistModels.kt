@@ -32,7 +32,13 @@ data class ChatUiMessage(
     val toolCallStatus: String? = null,
     val userHint: String? = null,
     val feedback: String = Feedback.NONE,
+    /** Doctor's messages: queued while offline, sent, or failed to send. */
+    val delivery: Delivery = Delivery.SENT,
+    /** Assistant reply the doctor cut short with Stop. */
+    val stopped: Boolean = false,
 )
+
+enum class Delivery { QUEUED, SENT, FAILED }
 
 /** Port of the widget's TElicitationEntry; keyed by "<messageId>::<toolId>". */
 data class ElicitationEntry(
@@ -92,6 +98,8 @@ data class MedAssistUiState(
     val readingLabel: String? = null,
     val voiceStatus: VoiceStatus = VoiceStatus.IDLE,
     val voiceStartedAt: Long = 0L,
+    /** Recent mic levels 0..1 (oldest first) for the live waveform. */
+    val voiceLevels: List<Float> = emptyList(),
 ) {
     /** Last message's last tool entry when it still accepts input (drives the composer swap). */
     val activeElicitation: Pair<String, ElicitationEntry>?
@@ -105,8 +113,17 @@ data class MedAssistUiState(
         get() = activeElicitation?.second?.component in com.eka.conversation.matrix.MatrixComponents.AUTH
 
     val isComposerDisabled: Boolean
-        get() = connection != ConnectionStatus.CONNECTED || isStreaming || isWaitingForResponse ||
-            voiceStatus == VoiceStatus.TRANSCRIBING
+        get() = isStreaming || isWaitingForResponse || voiceStatus == VoiceStatus.TRANSCRIBING ||
+            authExpired || startNewConnection
+
+    /** Text and files can be queued offline; live-only actions (voice, option taps) need the socket. */
+    val canSendLive: Boolean
+        get() = connection == ConnectionStatus.CONNECTED && !isComposerDisabled
+
+    /** A reply is on its way and can be stopped. */
+    val canStop: Boolean
+        get() = connection == ConnectionStatus.CONNECTED && (isStreaming || isWaitingForResponse) &&
+            voiceStatus != VoiceStatus.TRANSCRIBING
 
     val isEmptyChat: Boolean get() = messages.isEmpty()
 }
@@ -122,4 +139,6 @@ data class SendOptions(
     val toolDeclined: Boolean = false,
     val toolResult: JsonObject? = null,
     val toolKey: String? = null,
+    /** Already in the list (queued / resent message): send without adding another bubble. */
+    val shownMessageId: String? = null,
 )

@@ -47,6 +47,8 @@ fun ChatBubbleLeft(
     userHint: String? = null,
     feedback: String = Feedback.NONE,
     onFeedback: ((String) -> Unit)? = null,
+    /** The doctor cut this reply short. */
+    stopped: Boolean = false,
 ) {
     val iconAlpha = if (isFirstMessage) 1f else 0f
     val clipboard = LocalClipboardManager.current
@@ -93,6 +95,14 @@ fun ChatBubbleLeft(
                                 truncateOnTextOverflow = true,
                                 enableSoftBreakAddsNewLine = true,
                                 style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
+                            )
+                        }
+                        if (stopped) {
+                            Text(
+                                text = "You stopped this reply",
+                                style = touchCaption1Regular,
+                                color = DarwinTouchNeutral600,
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                         }
                     }

@@ -72,6 +72,7 @@ import com.eka.medassist.ui.chat.presentation.components.elicitation.AuthElicita
 import com.eka.medassist.ui.chat.presentation.components.elicitation.Chip
 import com.eka.medassist.ui.chat.presentation.components.elicitation.ElicitationRenderer
 import com.eka.medassist.ui.chat.presentation.components.elicitation.ExitFeedbackSheet
+import com.eka.medassist.ui.chat.presentation.models.ChatUiMessage
 import com.eka.medassist.ui.chat.presentation.models.ConnectionStatus
 import com.eka.medassist.ui.chat.presentation.models.MedAssistUiState
 import com.eka.medassist.ui.chat.presentation.models.Role
@@ -193,7 +194,14 @@ fun ConversationScreen(
                 state.isLoadingSessionMessages -> ShimmerContent()
                 state.isEmptyChat && cfg == null && state.connection == ConnectionStatus.CONNECTING -> ShimmerContent()
                 state.isEmptyChat -> EmptyState(state) { viewModel.onInitialSuggestion(it) }
-                else -> ConversationContent(state = state, viewModel = viewModel)
+                else -> ConversationContent(
+                    state = state,
+                    viewModel = viewModel,
+                    onEdit = { m ->
+                        text = m.content
+                        viewModel.trackEdit()
+                    },
+                )
             }
         }
 
@@ -228,7 +236,7 @@ fun ConversationScreen(
         if (active != null && isAuthInput) {
             AuthElicitationInput(
                 entry = active.second,
-                disabled = state.isComposerDisabled,
+                disabled = !state.canSendLive,
                 onSubmit = { v -> viewModel.sendMessage(SendOptions(message = v, toolCalled = true, toolKey = active.first)) },
                 onResend = { viewModel.sendMessage(SendOptions(toolCalled = true, resend = true, toolKey = active.first)) },
                 onCancel = { viewModel.clearElicitation(active.first, "Cancel verification") },
@@ -256,6 +264,8 @@ fun ConversationScreen(
                 onVoiceDone = viewModel::finishVoiceInput,
                 onVoiceCancel = viewModel::cancelVoiceInput,
                 preparingAttachments = state.preparingAttachments,
+                onStop = if (state.canStop) viewModel::stopReply else null,
+                voiceLevels = state.voiceLevels,
             )
         }
     }
@@ -292,6 +302,7 @@ private fun ShimmerContent(
 private fun ConversationContent(
     state: MedAssistUiState,
     viewModel: MedAssistViewModel,
+    onEdit: (ChatUiMessage) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val messages = state.messages
@@ -324,7 +335,12 @@ private fun ConversationContent(
             val index = messages.lastIndex - r
             val m = messages[index]
             if (m.role == Role.USER) {
-                ChatBubbleRight(message = m)
+                ChatBubbleRight(
+                    message = m,
+                    onEdit = onEdit,
+                    onResend = viewModel::resend,
+                    onRetry = viewModel::retryMessage,
+                )
                 return@items
             }
             val isLast = index == messages.lastIndex
@@ -345,6 +361,7 @@ private fun ConversationContent(
                         statusText = m.toolCallStatus ?: progress,
                         userHint = m.userHint,
                         feedback = m.feedback,
+                        stopped = m.stopped,
                         onFeedback = { fb -> viewModel.sendMessageFeedback(m.id, fb) },
                     )
                 }
@@ -355,7 +372,8 @@ private fun ConversationContent(
                         messageId = m.id,
                         toolKey = key,
                         entry = entry,
-                        disabled = entry.disabled || state.isComposerDisabled && entry.component != MatrixComponents.DOCTOR_CARD,
+                        // Option taps go straight to the agent, so they need a live connection
+                        disabled = entry.disabled || !state.canSendLive && entry.component != MatrixComponents.DOCTOR_CARD,
                         onSend = viewModel::sendMessage,
                     )
                 }

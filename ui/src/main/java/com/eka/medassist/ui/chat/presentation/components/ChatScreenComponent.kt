@@ -21,6 +21,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eka.conversation.matrix.media.MatrixFile
 import com.eka.medassist.ui.chat.client.MedAssistFiles
 import com.eka.medassist.ui.chat.client.MedAssistPatient
+import com.eka.medassist.ui.chat.client.MedAssistRecord
+import com.eka.medassist.ui.chat.client.MedAssistRecordsSource
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import kotlinx.coroutines.CancellationException
 import com.eka.medassist.ui.chat.presentation.screens.ConversationScreen
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistViewModel
@@ -44,12 +49,12 @@ fun MedAssistChat(
      */
     onPickPatient: ((onPicked: (MedAssistPatient) -> Unit) -> Unit)? = null,
     /**
-     * Opens the host's records to pick from: the attached patient's, or all records when no
-     * patient is attached. Once the doctor picks, call `onPicked` with a loader that returns the
-     * records' files (local images / PDFs, downloading them if needed); the chat shows a spinner
-     * while it runs, then resizes and adds them like any attachment. null hides "Records" in +.
+     * The host's medical records: a quick list of the newest in the + sheet (one tap attaches)
+     * and "See all" for the host's full records screen. null hides records in +.
      */
-    onPickRecords: ((patient: MedAssistPatient?, maxFiles: Int, onPicked: (loadFiles: suspend () -> List<File>) -> Unit) -> Unit)? = null,
+    records: MedAssistRecordsSource? = null,
+    /** Analytics sink: ("medassist_<event>", params) - opened, sent, first token, stop, errors, voice, attachments... */
+    onAnalyticsEvent: ((name: String, params: Map<String, Any?>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val viewModel: MedAssistViewModel = viewModel(
@@ -57,24 +62,47 @@ fun MedAssistChat(
         factory = MedAssistViewModel.Factory(context.applicationContext as Application, args),
     )
     val state by viewModel.state.collectAsState()
+    SideEffect { viewModel.analytics = onAnalyticsEvent }
     val withMicPermission = rememberMicPermission()
     val withCameraPermission = rememberCameraPermission()
     val scope = rememberCoroutineScope()
 
     // Reads / resizes picked files off the main thread, then adds what fits
-    val addUris: (List<Uri>) -> Unit = { uris ->
+    val addUris: (List<Uri>, String) -> Unit = { uris, source ->
         if (uris.isNotEmpty()) scope.launch {
             viewModel.setPreparingAttachments(true)
             val files = uris.map { MedAssistFiles.fromUri(context, it) }
             viewModel.setPreparingAttachments(false)
-            viewModel.addPickedAttachments(files.filterNotNull(), unreadable = files.count { it == null })
+            viewModel.addPickedAttachments(files.filterNotNull(), unreadable = files.count { it == null }, source = source)
         }
     }
-    val pickDocuments = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addUris(it) }
+    val pickDocuments = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addUris(it, "files") }
     val pickPhotos = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(maxItems = MatrixFile.MAX_FILES_PER_MESSAGE)
-    ) { addUris(it) }
-    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> addUris(listOfNotNull(uri)) }
+    ) { addUris(it, "gallery") }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> addUris(listOfNotNull(uri), "gallery") }
+
+    // Records: downloads (if needed) + resizes the picked records' pages, spinner on + meanwhile
+    val addRecords: (List<String>) -> Unit = { ids ->
+        val source = records
+        if (source != null && ids.isNotEmpty()) scope.launch {
+            viewModel.setPreparingAttachments(true)
+            val files = try {
+                source.files(ids, viewModel.attachmentSlotsLeft())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val picked = files.map { MedAssistFiles.fromFile(context, it) }
+            viewModel.setPreparingAttachments(false)
+            if (files.isEmpty()) {
+                Toast.makeText(context, "Couldn't get the selected records. Check your connection and try again.", Toast.LENGTH_SHORT).show()
+            } else {
+                viewModel.addPickedAttachments(picked.filterNotNull(), unreadable = picked.count { it == null }, source = "records")
+            }
+        }
+    }
 
     // Camera writes into our FileProvider; the path survives process death via rememberSaveable
     var cameraPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -91,7 +119,7 @@ fun MedAssistChat(
             val picked = MedAssistFiles.fromFile(context, file)
             file.delete()
             viewModel.setPreparingAttachments(false)
-            viewModel.addPickedAttachments(listOfNotNull(picked), unreadable = if (picked == null) 1 else 0)
+            viewModel.addPickedAttachments(listOfNotNull(picked), unreadable = if (picked == null) 1 else 0, source = "camera")
         }
     }
     val openCamera = {
@@ -109,6 +137,20 @@ fun MedAssistChat(
     }
 
     var showAttachSheet by remember { mutableStateOf(false) }
+    // Newest records for the sheet's quick list; null while loading
+    var recentRecords by remember { mutableStateOf<List<MedAssistRecord>?>(null) }
+    LaunchedEffect(showAttachSheet, state.patient) {
+        val source = records
+        if (!showAttachSheet || source == null) return@LaunchedEffect
+        recentRecords = null
+        recentRecords = try {
+            source.recent(state.patient, RECENT_RECORDS)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     EkaTheme {
         ConversationScreen(
@@ -123,23 +165,16 @@ fun MedAssistChat(
             AttachSheet(
                 patientName = state.patient?.name,
                 slotsLeft = slots,
-                onRecords = onPickRecords?.let { pick ->
+                onRecords = records?.let { source ->
                     {
                         showAttachSheet = false
-                        pick(state.patient, slots) { loadFiles ->
-                            scope.launch {
-                                viewModel.setPreparingAttachments(true)
-                                val files = runCatching { loadFiles() }.getOrDefault(emptyList())
-                                val picked = files.map { MedAssistFiles.fromFile(context, it) }
-                                viewModel.setPreparingAttachments(false)
-                                if (files.isEmpty()) {
-                                    Toast.makeText(context, "Couldn't get the selected records. Check your connection and try again.", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    viewModel.addPickedAttachments(picked.filterNotNull(), unreadable = picked.count { it == null })
-                                }
-                            }
-                        }
+                        source.openPicker(state.patient, slots) { ids -> addRecords(ids) }
                     }
+                },
+                recentRecords = recentRecords,
+                onRecordClick = { record ->
+                    showAttachSheet = false
+                    addRecords(listOf(record.id))
                 },
                 onGallery = {
                     showAttachSheet = false
@@ -160,3 +195,6 @@ fun MedAssistChat(
         }
     }
 }
+
+/** Records shown in the + sheet's quick list. */
+private const val RECENT_RECORDS = 6
