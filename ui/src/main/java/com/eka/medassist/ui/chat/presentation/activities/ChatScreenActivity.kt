@@ -10,6 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import com.eka.conversation.matrix.MatrixEnvironment
 import com.eka.medassist.ui.chat.presentation.components.MedAssistChat
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 class ChatScreenActivity : ComponentActivity() {
 
@@ -34,6 +36,9 @@ class ChatScreenActivity : ComponentActivity() {
             environment = intent.getStringExtra(ActivityParams.ENVIRONMENT)
                 ?.let { runCatching { MatrixEnvironment.valueOf(it) }.getOrNull() }
                 ?: MatrixEnvironment.PRODUCTION,
+            extraContext = intent.getStringExtra(ActivityParams.EXTRA_CONTEXT)
+                ?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() },
+            chatScope = intent.getStringExtra(ActivityParams.CHAT_SCOPE),
         )
         setContent {
             MedAssistChat(args = args, onClose = { finish() })
@@ -51,6 +56,8 @@ class ChatScreenActivity : ComponentActivity() {
                 putExtra(ActivityParams.FORCE_NEW_CHAT, args.forceNewChat)
                 putExtra(ActivityParams.SESSION_ID, args.sessionId)
                 putExtra(ActivityParams.ENVIRONMENT, args.environment.name)
+                args.extraContext?.let { putExtra(ActivityParams.EXTRA_CONTEXT, it.toString()) }
+                putExtra(ActivityParams.CHAT_SCOPE, args.chatScope)
             }
     }
 }

@@ -65,6 +65,17 @@ data class MedAssistArgs(
     /** Open this past session instead of the stored one. */
     val sessionId: String? = null,
     val environment: MatrixEnvironment = MatrixEnvironment.PRODUCTION,
+    /**
+     * Extra session context sent on session create (session_context), e.g. an EkaScribe
+     * session: {"session_id", "transcript", "document": {"id", "name", "content"}}.
+     */
+    val extraContext: JsonObject? = null,
+    /**
+     * Which stored chat to resume. null = the regular DocAssist chat; a scope such as
+     * "scribe:<session id>" keeps one chat per scribe session (as ekascribe-web does) without
+     * touching the regular one.
+     */
+    val chatScope: String? = null,
 )
 
 /**
@@ -98,10 +109,12 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             prefs.clearUser()
             prefs.lastAuthToken = tokenFingerprint
         }
-        if (args.forceNewChat) prefs.clearSession()
+        if (args.forceNewChat) clearStoredSession()
 
-        val ctx = if (args.patientName != null || args.patientOid != null) buildJsonObject {
-            put("profile", buildJsonObject {
+        val hasProfile = args.patientName != null || args.patientOid != null
+        val ctx = if (hasProfile || args.extraContext != null) buildJsonObject {
+            args.extraContext?.forEach { (k, v) -> put(k, v) }
+            if (hasProfile) put("profile", buildJsonObject {
                 args.patientName?.let { put("name", it) }
                 args.patientOid?.let { put("oid", it) }
             })
@@ -144,14 +157,14 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                     it.copy(connection = ConnectionStatus.CONNECTING, messages = emptyList(), elicitations = emptyMap(),
                         sessionId = null, isStreaming = false, isWaitingForResponse = false, progressMessage = null)
                 }
-                prefs.clearSession()
+                clearStoredSession()
                 client.endSession()
                 resetConnectionStates()
                 fileUploadsThisSession = 0
                 startSessionCore(null)
                 return@launch
             }
-            val active = _state.value.sessionId ?: prefs.sessionId
+            val active = _state.value.sessionId ?: storedSessionId
             val target = sessionId ?: active
             if (target != _state.value.sessionId) {
                 client.endSession()
@@ -169,7 +182,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         }
         try {
             val session = client.startSession(existing)
-            prefs.sessionId = session.sessionId
+            storedSessionId = session.sessionId
             session.userId?.let { prefs.userId = it }
             _state.update {
                 it.copy(
@@ -217,11 +230,18 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     fun onForeground() = client.onForeground()
 
+    /** The chat to resume next time, kept per [MedAssistArgs.chatScope]. */
+    private var storedSessionId: String?
+        get() = prefs.sessionId(args.chatScope)
+        set(value) = prefs.setSessionId(args.chatScope, value)
+
+    private fun clearStoredSession() = prefs.clearSession(args.chatScope)
+
     private fun onTokenExchange(t: TokenExchangeResponse) {
         val previous = prefs.userId
         val isNewLogin = t.userId != null && previous != null && t.userId != previous
         if (isNewLogin || t.userIdChangeDetected == true) {
-            prefs.clearSession()
+            prefs.clearAllSessions()
             _state.update { it.copy(messages = emptyList(), elicitations = emptyMap(), sessionId = null) }
         }
         prefs.saveTokens(t)
@@ -267,7 +287,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 _state.update { it.copy(connection = ConnectionStatus.NOT_CONNECTED) }
                 if (retryAttempts < 2) {
                     retryAttempts++
-                    viewModelScope.launch { startSessionCore(_state.value.sessionId ?: prefs.sessionId) }
+                    viewModelScope.launch { startSessionCore(_state.value.sessionId ?: storedSessionId) }
                 } else {
                     _state.update { it.copy(showRetry = true, error = UiError("Trying to connect...", e.message)) }
                 }
@@ -287,7 +307,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     private fun handleStartNewConnection() {
         resetConnectionStates()
-        prefs.clearSession()
+        clearStoredSession()
         startSession(forceNewSession = true)
     }
 
@@ -303,7 +323,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             if (!client.isConnected()) {
                 _state.update { it.copy(connection = ConnectionStatus.NOT_CONNECTED) }
                 when {
-                    retryAttempts < 2 -> { retryAttempts++; startSessionCore(_state.value.sessionId ?: prefs.sessionId) }
+                    retryAttempts < 2 -> { retryAttempts++; startSessionCore(_state.value.sessionId ?: storedSessionId) }
                     retryAttempts == 2 -> { retryAttempts++; _state.update { it.copy(showRetry = true, error = UiError("Trying to connect...")) } }
                     else -> _state.update { it.copy(error = UiError("Something went wrong!", "Please start a new chat."), startNewConnection = true) }
                 }

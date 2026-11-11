@@ -19,6 +19,15 @@ class MedAssistPrefs(context: Context, agentId: String) {
         get() = prefs.getString(SESSION, null)
         set(value) = prefs.edit().putString(SESSION, value).apply()
 
+    /** Chat to resume for [scope] (null = the regular chat); like the web's session-scoped chat storage. */
+    fun sessionId(scope: String?): String? = prefs.getString(sessionKey(scope), null)
+
+    fun setSessionId(scope: String?, value: String?) = prefs.edit().putString(sessionKey(scope), value).apply()
+
+    fun clearSession(scope: String?) = prefs.edit().remove(sessionKey(scope)).apply()
+
+    private fun sessionKey(scope: String?) = if (scope.isNullOrBlank()) SESSION else "$SESSION:$scope"
+
     var userId: String?
         get() = prefs.getString(USER, null)
         set(value) = prefs.edit().putString(USER, value).apply()
@@ -46,7 +55,15 @@ class MedAssistPrefs(context: Context, agentId: String) {
 
     /** Drop identity + session (403 / terminal auth failure / doctor switched). */
     fun clearUser() {
-        prefs.edit().remove(SESS).remove(REFRESH).remove(LEVEL).remove(USER).remove(SESSION).apply()
+        prefs.edit().remove(SESS).remove(REFRESH).remove(LEVEL).remove(USER).apply()
+        clearAllSessions()
+    }
+
+    /** Every stored chat, scoped ones included (they all belong to the current identity). */
+    fun clearAllSessions() {
+        prefs.edit().apply {
+            prefs.all.keys.filter { it == SESSION || it.startsWith("$SESSION:") }.forEach { remove(it) }
+        }.apply()
     }
 
     private companion object {

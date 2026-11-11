@@ -11,4 +11,6 @@ object ActivityParams {
     const val PATIENT_OID = "patient_oid"
     const val FORCE_NEW_CHAT = "force_new_chat"
     const val ENVIRONMENT = "environment"
+    const val EXTRA_CONTEXT = "extra_context"
+    const val CHAT_SCOPE = "chat_scope"
 }
