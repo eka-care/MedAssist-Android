@@ -213,7 +213,30 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     }
 
     private fun startInitialSession() {
-        if (args.sessionId != null) startSession(sessionId = args.sessionId) else startSession()
+        if (args.sessionId != null) {
+            startSession(sessionId = args.sessionId)
+            return
+        }
+        // Opened for a specific patient but the stored chat is about someone else (or no one):
+        // start a fresh chat for this patient instead of resuming the wrong one.
+        val stored = storedSessionId
+        val wanted = args.patient
+        if (stored != null && wanted != null && prefs.patientFor(stored)?.let { samePatient(it, wanted) } != true) {
+            startSession(forceNewSession = true)
+            return
+        }
+        startSession()
+    }
+
+    private fun samePatient(a: MedAssistPatient, b: MedAssistPatient) =
+        if (a.oid != null && b.oid != null) a.oid == b.oid else a.name == b.name
+
+    /** Show (and use as context for later new chats) the patient this chat was started with. */
+    private fun restorePatient(sessionId: String, preferHost: Boolean) {
+        val patient = if (preferHost && args.patient != null) args.patient else prefs.patientFor(sessionId)
+        if (patient == _state.value.patient) return
+        _state.update { it.copy(patient = patient) }
+        client.updateContext(buildContext(patient))
     }
 
     /**
@@ -259,7 +282,11 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 client.endSession()
                 _state.update { it.copy(messages = emptyList(), elicitations = emptyMap()) }
                 fileUploadsThisSession = 0
-                if (target != null) loadSessionMessages(target)
+                if (target != null) {
+                    // Resuming keeps the chat's patient chip; a history pick shows that chat's patient
+                    restorePatient(target, preferHost = sessionId == null)
+                    loadSessionMessages(target)
+                }
             }
             startSessionCore(target)
         }
@@ -274,6 +301,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             val session = client.startSession(existing)
             track("session_started", "resumed" to (existing != null), "ms" to (System.currentTimeMillis() - t0))
             storedSessionId = session.sessionId
+            prefs.savePatient(session.sessionId, _state.value.patient)
             session.userId?.let { prefs.userId = it }
             _state.update {
                 it.copy(

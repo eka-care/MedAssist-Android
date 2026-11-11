@@ -3,6 +3,8 @@ package com.eka.medassist.ui.chat.data
 import android.content.Context
 import com.eka.conversation.matrix.StoredCredentials
 import com.eka.conversation.matrix.TokenExchangeResponse
+import com.eka.medassist.ui.chat.client.MedAssistPatient
+import org.json.JSONObject
 
 /** Per-agent persistence (the web widget keeps the same fields in localStorage). */
 class MedAssistPrefs(context: Context, agentId: String) {
@@ -27,6 +29,34 @@ class MedAssistPrefs(context: Context, agentId: String) {
     fun clearSession(scope: String?) = prefs.edit().remove(sessionKey(scope)).apply()
 
     private fun sessionKey(scope: String?) = if (scope.isNullOrBlank()) SESSION else "$SESSION:$scope"
+
+    /** The patient a chat was started with, so reopening / resuming that chat shows it again. */
+    fun patientFor(sessionId: String): MedAssistPatient? = prefs.getString("$PATIENT$sessionId", null)?.let { raw ->
+        runCatching {
+            val o = JSONObject(raw)
+            MedAssistPatient(
+                name = o.getString("name"),
+                age = o.optInt("age", -1).takeIf { it > 0 },
+                sex = o.optString("sex").takeIf { it.isNotBlank() },
+                oid = o.optString("oid").takeIf { it.isNotBlank() },
+            )
+        }.getOrNull()
+    }
+
+    fun savePatient(sessionId: String, patient: MedAssistPatient?) {
+        val key = "$PATIENT$sessionId"
+        if (patient == null) {
+            prefs.edit().remove(key).apply()
+            return
+        }
+        val o = JSONObject().apply {
+            put("name", patient.name)
+            patient.age?.let { put("age", it) }
+            patient.sex?.let { put("sex", it) }
+            patient.oid?.let { put("oid", it) }
+        }
+        prefs.edit().putString(key, o.toString()).apply()
+    }
 
     var userId: String?
         get() = prefs.getString(USER, null)
@@ -62,7 +92,7 @@ class MedAssistPrefs(context: Context, agentId: String) {
     /** Every stored chat, scoped ones included (they all belong to the current identity). */
     fun clearAllSessions() {
         prefs.edit().apply {
-            prefs.all.keys.filter { it == SESSION || it.startsWith("$SESSION:") }.forEach { remove(it) }
+            prefs.all.keys.filter { it == SESSION || it.startsWith("$SESSION:") || it.startsWith(PATIENT) }.forEach { remove(it) }
         }.apply()
     }
 
@@ -72,6 +102,7 @@ class MedAssistPrefs(context: Context, agentId: String) {
         const val LEVEL = "level"
         const val USER = "user_id"
         const val SESSION = "session_id"
+        const val PATIENT = "patient:"
         const val PARTNER = "partner_token_hash"
     }
 }
