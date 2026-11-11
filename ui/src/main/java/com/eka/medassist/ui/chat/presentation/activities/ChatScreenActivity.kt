@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.eka.conversation.matrix.MatrixEnvironment
+import com.eka.medassist.ui.chat.client.MedAssistPatient
 import com.eka.medassist.ui.chat.presentation.components.MedAssistChat
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
 import kotlinx.serialization.json.Json
@@ -29,8 +30,14 @@ class ChatScreenActivity : ComponentActivity() {
             agentId = agentId,
             authToken = intent.getStringExtra(ActivityParams.AUTH_TOKEN),
             title = intent.getStringExtra(ActivityParams.TITLE) ?: "MedAssist",
-            patientName = intent.getStringExtra(ActivityParams.PATIENT_NAME),
-            patientOid = intent.getStringExtra(ActivityParams.PATIENT_OID),
+            patient = intent.getStringExtra(ActivityParams.PATIENT_NAME)?.let { name ->
+                MedAssistPatient(
+                    name = name,
+                    age = intent.getIntExtra(ActivityParams.PATIENT_AGE, -1).takeIf { it >= 0 },
+                    sex = intent.getStringExtra(ActivityParams.PATIENT_SEX),
+                    oid = intent.getStringExtra(ActivityParams.PATIENT_OID),
+                )
+            },
             forceNewChat = intent.getBooleanExtra(ActivityParams.FORCE_NEW_CHAT, false),
             sessionId = intent.getStringExtra(ActivityParams.SESSION_ID),
             environment = intent.getStringExtra(ActivityParams.ENVIRONMENT)
@@ -51,8 +58,12 @@ class ChatScreenActivity : ComponentActivity() {
                 putExtra(ActivityParams.AGENT_ID, args.agentId)
                 putExtra(ActivityParams.AUTH_TOKEN, args.authToken)
                 putExtra(ActivityParams.TITLE, args.title)
-                putExtra(ActivityParams.PATIENT_NAME, args.patientName)
-                putExtra(ActivityParams.PATIENT_OID, args.patientOid)
+                args.patient?.let { p ->
+                    putExtra(ActivityParams.PATIENT_NAME, p.name)
+                    p.age?.let { putExtra(ActivityParams.PATIENT_AGE, it) }
+                    putExtra(ActivityParams.PATIENT_SEX, p.sex)
+                    putExtra(ActivityParams.PATIENT_OID, p.oid)
+                }
                 putExtra(ActivityParams.FORCE_NEW_CHAT, args.forceNewChat)
                 putExtra(ActivityParams.SESSION_ID, args.sessionId)
                 putExtra(ActivityParams.ENVIRONMENT, args.environment.name)

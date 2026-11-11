@@ -42,6 +42,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.eka.conversation.matrix.MatrixComponents
 import com.eka.medassist.ui.R
+import com.eka.medassist.ui.chat.client.MedAssistPatient
+import com.eka.medassist.ui.chat.presentation.components.PatientChipRow
+import com.eka.medassist.ui.chat.presentation.components.PermissionAlertDialog
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleLeft
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleProcessing
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleRight
@@ -76,6 +79,8 @@ fun ConversationScreen(
     viewModel: MedAssistViewModel,
     onBackClick : () -> Unit,
     onPickFiles: () -> Unit,
+    /** Host's patient picker; null hides the patient chip. */
+    onPickPatient: ((onPicked: (MedAssistPatient) -> Unit) -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -108,6 +113,27 @@ fun ConversationScreen(
     val cfg = state.agentConfig
     val startNewChat = { text = ""; viewModel.startNewChat() }
 
+    // Changing the patient starts a new chat, so ask first once the doctor has said something
+    var pendingPatient by remember { mutableStateOf<PatientChange?>(null) }
+    val changePatient: (MedAssistPatient?) -> Unit = { p ->
+        if (state.messages.any { it.role == Role.USER }) pendingPatient = PatientChange(p)
+        else { text = ""; viewModel.attachPatient(p) }
+    }
+    pendingPatient?.let { change ->
+        PermissionAlertDialog(
+            title = if (change.patient != null) "Start a new chat with ${change.patient.name}?" else "Remove patient?",
+            description = "The patient can't be added to a chat that has already started, so a new chat will begin. This chat stays in your history.",
+            confirmButtonLabel = "New chat",
+            dismissButtonLabel = "Cancel",
+            onDismiss = { pendingPatient = null },
+            onConfirm = {
+                pendingPatient = null
+                text = ""
+                viewModel.attachPatient(change.patient)
+            },
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -123,6 +149,15 @@ fun ConversationScreen(
                 { showHistory = true; viewModel.loadPastSessions() }
             } else null,
         )
+
+        if (onPickPatient != null) {
+            PatientChipRow(
+                patient = state.patient,
+                enabled = !state.isStreaming && !state.isWaitingForResponse,
+                onPick = { onPickPatient { changePatient(it) } },
+                onRemove = { changePatient(null) },
+            )
+        }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -327,3 +362,5 @@ fun getConnectionState(state: MedAssistUiState): String = when {
     state.connection == ConnectionStatus.CONNECTED -> "Connected"
     else -> "Disconnected"
 }
+
+private class PatientChange(val patient: MedAssistPatient?)

@@ -9,6 +9,8 @@ object ActivityParams {
     const val TITLE = "title"
     const val PATIENT_NAME = "patient_name"
     const val PATIENT_OID = "patient_oid"
+    const val PATIENT_AGE = "patient_age"
+    const val PATIENT_SEX = "patient_sex"
     const val FORCE_NEW_CHAT = "force_new_chat"
     const val ENVIRONMENT = "environment"
     const val EXTRA_CONTEXT = "extra_context"

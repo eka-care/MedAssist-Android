@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.eka.conversation.matrix.MatrixEnvironment
+import com.eka.medassist.ui.chat.client.MedAssistPatient
 import com.eka.medassist.ui.chat.common.DoctorMerge
 import com.eka.medassist.ui.chat.data.MedAssistPrefs
 import com.eka.conversation.matrix.MatrixApiException
@@ -45,6 +46,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -57,9 +59,8 @@ data class MedAssistArgs(
     /** Doctor's Eka session token, sent to Matrix as the partner auth_token (null -> guest). */
     val authToken: String?,
     val title: String = "DocAssist",
-    /** Patient in focus, sent as context.profile on session create. */
-    val patientName: String? = null,
-    val patientOid: String? = null,
+    /** Patient in focus at start; the doctor can attach / change it from the chat. */
+    val patient: MedAssistPatient? = null,
     /** Start a fresh chat instead of resuming the stored session. */
     val forceNewChat: Boolean = false,
     /** Open this past session instead of the stored one. */
@@ -85,7 +86,7 @@ data class MedAssistArgs(
 class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : AndroidViewModel(app) {
 
     private val prefs = MedAssistPrefs(app, args.agentId)
-    private val _state = MutableStateFlow(MedAssistUiState(title = args.title))
+    private val _state = MutableStateFlow(MedAssistUiState(title = args.title, patient = args.patient))
     val state: StateFlow<MedAssistUiState> = _state.asStateFlow()
     private val _toasts = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toasts: SharedFlow<String> = _toasts.asSharedFlow()
@@ -111,14 +112,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         }
         if (args.forceNewChat) clearStoredSession()
 
-        val hasProfile = args.patientName != null || args.patientOid != null
-        val ctx = if (hasProfile || args.extraContext != null) buildJsonObject {
-            args.extraContext?.forEach { (k, v) -> put(k, v) }
-            if (hasProfile) put("profile", buildJsonObject {
-                args.patientName?.let { put("name", it) }
-                args.patientOid?.let { put("oid", it) }
-            })
-        } else null
+        val ctx = buildContext(args.patient)
 
         client = MatrixClient(
             context = app,
@@ -217,6 +211,44 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     }
 
     fun startNewChat() = startSession(forceNewSession = true)
+
+    /**
+     * Attach, change or remove (null) the patient. Matrix fixes context when a session is
+     * created, so this starts a new chat carrying the patient; the old chat stays in history.
+     */
+    fun attachPatient(patient: MedAssistPatient?) {
+        if (patient == _state.value.patient) return
+        _state.update { it.copy(patient = patient) }
+        client.updateContext(buildContext(patient))
+        startNewChat()
+    }
+
+    /**
+     * Session context: the host's extra context plus the patient as `profile`. A scribe
+     * snapshot's `patient` field (ekascribe-web shape) follows the attached patient too.
+     */
+    private fun buildContext(patient: MedAssistPatient?): JsonObject? {
+        val extra = args.extraContext
+        if (patient == null && extra == null) return null
+        return buildJsonObject {
+            extra?.forEach { (k, v) -> put(k, v) }
+            if (extra?.containsKey("patient") == true) {
+                put("patient", patient?.let {
+                    buildJsonObject {
+                        put("name", it.name)
+                        it.age?.let { a -> put("age", a) }
+                        it.sex?.let { s -> put("sex", s) }
+                    }
+                } ?: JsonNull)
+            }
+            if (patient != null) put("profile", buildJsonObject {
+                put("name", patient.name)
+                patient.age?.let { put("age", it) }
+                patient.sex?.let { put("gender", it) }
+                patient.oid?.let { put("oid", it) }
+            })
+        }
+    }
 
     fun openPastSession(sessionId: String) = startSession(sessionId = sessionId)
 

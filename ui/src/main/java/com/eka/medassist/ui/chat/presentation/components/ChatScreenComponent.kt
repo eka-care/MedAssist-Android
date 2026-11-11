@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eka.conversation.matrix.media.MatrixFile
+import com.eka.medassist.ui.chat.client.MedAssistPatient
 import com.eka.medassist.ui.chat.presentation.screens.ConversationScreen
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistViewModel
@@ -26,6 +27,11 @@ import kotlinx.coroutines.launch
 fun MedAssistChat(
     args: MedAssistArgs,
     onClose: () -> Unit,
+    /**
+     * Opens the host's patient picker and reports the chosen patient through `onPicked`.
+     * Shows the patient chip in the chat when set.
+     */
+    onPickPatient: ((onPicked: (MedAssistPatient) -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val viewModel: MedAssistViewModel = viewModel(
@@ -45,6 +51,7 @@ fun MedAssistChat(
             viewModel = viewModel,
             onBackClick = onClose,
             onPickFiles = { pickFiles.launch(arrayOf("image/png", "image/jpeg", "application/pdf")) },
+            onPickPatient = onPickPatient,
         )
     }
 }
