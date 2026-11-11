@@ -11,5 +11,16 @@
             android:label="@string/title_activity_chat_screen"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.MedAssist" />
+
+        <!-- Own subclass + authority so it never clashes with the host app's FileProvider -->
+        <provider
+            android:name=".chat.data.MedAssistFileProvider"
+            android:authorities="${applicationId}.medassist.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/medassist_file_paths" />
+        </provider>
     </application>
 </manifest>

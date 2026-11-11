@@ -385,7 +385,10 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         // Any answer to a voice message ends its "transcribing" state
         when (event) {
             is MatrixEvent.MessageChunk, MatrixEvent.EndOfStream, is MatrixEvent.ToolCall,
-            is MatrixEvent.AudioTranscript, MatrixEvent.Offline, is MatrixEvent.RealtimeError -> clearTranscribing()
+            is MatrixEvent.AudioTranscript -> clearTranscribing()
+            // e.g. "invalid_content: Invalid audio format" - the clip was rejected, say so
+            is MatrixEvent.RealtimeError -> failVoiceMessage(event.message)
+            MatrixEvent.Offline -> failVoiceMessage("You went offline before it was transcribed.")
             else -> Unit
         }
         when (event) {
@@ -814,6 +817,41 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         _state.update { it.copy(attachments = current + valid) }
     }
 
+    /** Files the doctor can still add to this message (3 per message, 5 per chat). */
+    fun attachmentSlotsLeft(): Int {
+        val attached = _state.value.attachments.size
+        return minOf(
+            MatrixFile.MAX_FILES_PER_MESSAGE - attached,
+            MatrixFile.MAX_FILES_PER_SESSION - fileUploadsThisSession - attached,
+        ).coerceAtLeast(0)
+    }
+
+    /** Reports that no more files fit; true when the picker shouldn't open. */
+    fun checkAttachmentRoom(): Boolean {
+        if (attachmentSlotsLeft() > 0) return true
+        val perSession = MatrixFile.MAX_FILES_PER_SESSION - fileUploadsThisSession - _state.value.attachments.size <= 0
+        _toasts.tryEmit(
+            if (perSession) "This chat already has ${MatrixFile.MAX_FILES_PER_SESSION} files. Start a new chat to add more."
+            else "You can attach up to ${MatrixFile.MAX_FILES_PER_MESSAGE} files per message."
+        )
+        return false
+    }
+
+    /** Shows a spinner on + while picked files are read / compressed. */
+    fun setPreparingAttachments(preparing: Boolean) = _state.update { it.copy(preparingAttachments = preparing) }
+
+    /** Adds what fits and says what didn't (unreadable, or over the per-message limit). */
+    fun addPickedAttachments(files: List<MatrixFile>, unreadable: Int = 0) {
+        val room = attachmentSlotsLeft()
+        val fits = files.take(room)
+        if (fits.isNotEmpty()) addAttachments(fits)
+        val dropped = files.size - fits.size
+        when {
+            dropped > 0 -> _toasts.tryEmit("Added ${fits.size} of ${files.size}. You can attach up to ${MatrixFile.MAX_FILES_PER_MESSAGE} files per message.")
+            unreadable > 0 -> _toasts.tryEmit(if (unreadable == 1) "Couldn't add one file. It may be unsupported or too large." else "Couldn't add $unreadable files. They may be unsupported or too large.")
+        }
+    }
+
     fun removeAttachment(file: MatrixFile) = _state.update { it.copy(attachments = it.attachments - file) }
 
     /** Composer send: text and/or attachments. */
@@ -940,13 +978,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             voiceTimeoutJob?.cancel()
             voiceTimeoutJob = viewModelScope.launch {
                 delay(VOICE_TIMEOUT_MS)
-                if (_state.value.voiceStatus == VoiceStatus.TRANSCRIBING) {
-                    setVoiceIdle()
-                    _state.update {
-                        it.copy(error = UiError("Couldn't transcribe your voice message", "Please try again."), showRetry = false)
-                    }
-                    setWaiting(false)
-                }
+                failVoiceMessage("It took too long to transcribe.")
             }
         }
     }
@@ -962,6 +994,25 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         }
         // The reply follows the transcript, so keep "Thinking" up
         setWaiting(true)
+    }
+
+    /**
+     * A sent clip got no transcript (rejected, offline, timed out): drop its "Voice message"
+     * bubble and tell the doctor, instead of leaving it on "Transcribing...".
+     */
+    private fun failVoiceMessage(reason: String?) {
+        voiceTimeoutJob?.cancel()
+        if (_state.value.voiceStatus != VoiceStatus.TRANSCRIBING) return
+        _state.update { s ->
+            val i = s.messages.indexOfLast { it.role == Role.USER && it.isAudio && it.content.isBlank() }
+            s.copy(
+                messages = if (i >= 0) s.messages.filterIndexed { idx, _ -> idx != i } else s.messages,
+                voiceStatus = VoiceStatus.IDLE,
+                error = UiError("Voice message not sent", listOfNotNull(reason, "Please try again or type your question.").joinToString(" ")),
+                showRetry = false,
+            )
+        }
+        setWaiting(false)
     }
 
     /** The server answered (transcript, reply, tool, error or offline): stop showing "transcribing". */

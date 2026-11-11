@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.androidx.fonts)
     implementation(libs.compose.markdown)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     // Matrix (MedAssist) client - eka-care/ai-chat module :matrix

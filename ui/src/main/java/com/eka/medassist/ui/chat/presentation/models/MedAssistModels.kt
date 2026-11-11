@@ -79,6 +79,7 @@ data class MedAssistUiState(
     val agentConfig: AgentConfig? = null,
     val sessionId: String? = null,
     val attachments: List<MatrixFile> = emptyList(),
+    val preparingAttachments: Boolean = false,
     val isLoadingSessionMessages: Boolean = false,
     val pastSessions: List<PastSession> = emptyList(),
     val isLoadingHistory: Boolean = false,

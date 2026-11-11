@@ -255,6 +255,7 @@ fun ConversationScreen(
                 } else null,
                 onVoiceDone = viewModel::finishVoiceInput,
                 onVoiceCancel = viewModel::cancelVoiceInput,
+                preparingAttachments = state.preparingAttachments,
             )
         }
     }

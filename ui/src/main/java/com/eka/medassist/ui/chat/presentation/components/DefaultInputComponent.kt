@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -61,6 +62,8 @@ fun DefaultInputComponent(
     readingLabel: String? = null,
     /** Starts dictation; null hides the mic. */
     onMicrophoneClick: (() -> Unit)? = null,
+    /** Picked files are being read / resized: spinner in place of +. */
+    preparingAttachments: Boolean = false,
 ) {
     val hasContent = query.isNotBlank() || attachments.isNotEmpty()
     Column(
@@ -114,13 +117,17 @@ fun DefaultInputComponent(
             },
             leadingIcon = onAttachClick?.let { attach ->
                 {
-                    IconButton(onClick = attach, enabled = sendEnabled) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_plus_regular),
-                            contentDescription = "Attach",
-                            tint = if (sendEnabled) DarwinTouchNeutral800 else DarwinTouchNeutral300,
-                            modifier = Modifier.size(18.dp)
-                        )
+                    IconButton(onClick = attach, enabled = sendEnabled && !preparingAttachments) {
+                        if (preparingAttachments) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = DarwinTouchPrimary)
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_plus_regular),
+                                contentDescription = "Attach",
+                                tint = if (sendEnabled) DarwinTouchNeutral800 else DarwinTouchNeutral300,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             },

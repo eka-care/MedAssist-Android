@@ -31,6 +31,7 @@ fun ConversationInput(
     onMicrophoneClick: (() -> Unit)? = null,
     onVoiceDone: () -> Unit = {},
     onVoiceCancel: () -> Unit = {},
+    preparingAttachments: Boolean = false,
 ) {
     val focusRequester = remember { FocusRequester() }
     AnimatedContent(
@@ -55,6 +56,7 @@ fun ConversationInput(
                 onRemoveAttachment = onRemoveAttachment,
                 readingLabel = readingLabel,
                 onMicrophoneClick = onMicrophoneClick,
+                preparingAttachments = preparingAttachments,
             )
         } else {
             AudioInputComponent(

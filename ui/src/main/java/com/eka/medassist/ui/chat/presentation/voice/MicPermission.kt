@@ -21,12 +21,43 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.eka.medassist.ui.chat.presentation.components.PermissionAlertDialog
 
+/** Mic permission for voice messages. Returns `withMicPermission(onGranted)`. */
+@Composable
+internal fun rememberMicPermission(): (onGranted: () -> Unit) -> Unit = rememberPermissionRequest(
+    permission = Manifest.permission.RECORD_AUDIO,
+    deniedMessage = "Microphone permission is needed for voice messages.",
+    settingsTitle = "Microphone access needed",
+    settingsText = "Turn on Microphone for this app in Settings to send voice messages.",
+)
+
 /**
- * Mic permission for voice input: asks the system; once it's permanently denied, offers to open
- * the app's settings instead. Returns `withMicPermission(onGranted)`.
+ * Camera permission for "Take photo". Only needed when the host app declares CAMERA in its
+ * manifest (then the system camera can't be opened without it); otherwise runs straight away.
  */
 @Composable
-internal fun rememberMicPermission(): (onGranted: () -> Unit) -> Unit {
+internal fun rememberCameraPermission(): (onGranted: () -> Unit) -> Unit {
+    val context = LocalContext.current
+    val request = rememberPermissionRequest(
+        permission = Manifest.permission.CAMERA,
+        deniedMessage = "Camera permission is needed to take a photo.",
+        settingsTitle = "Camera access needed",
+        settingsText = "Turn on Camera for this app in Settings to take photos.",
+    )
+    val declared = remember { context.declaresPermission(Manifest.permission.CAMERA) }
+    return remember(request, declared) { { onGranted -> if (declared) request(onGranted) else onGranted() } }
+}
+
+/**
+ * Asks the system for [permission]; once it's permanently denied, offers to open the app's
+ * settings instead.
+ */
+@Composable
+private fun rememberPermissionRequest(
+    permission: String,
+    deniedMessage: String,
+    settingsTitle: String,
+    settingsText: String,
+): (onGranted: () -> Unit) -> Unit {
     val context = LocalContext.current
     var pending by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showSettings by remember { mutableStateOf(false) }
@@ -38,16 +69,16 @@ internal fun rememberMicPermission(): (onGranted: () -> Unit) -> Unit {
             return@rememberLauncherForActivityResult
         }
         val activity = context.findActivity()
-        if (activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.RECORD_AUDIO)) {
+        if (activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
             showSettings = true // "Don't allow" twice / "Don't ask again"
         } else {
-            Toast.makeText(context, "Microphone permission is needed for voice input.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, deniedMessage, Toast.LENGTH_SHORT).show()
         }
     }
     if (showSettings) {
         PermissionAlertDialog(
-            title = "Microphone access needed",
-            description = "Turn on Microphone for this app in Settings to use voice input.",
+            title = settingsTitle,
+            description = settingsText,
             confirmButtonLabel = "Open Settings",
             dismissButtonLabel = "Not now",
             onDismiss = { showSettings = false },
@@ -62,15 +93,21 @@ internal fun rememberMicPermission(): (onGranted: () -> Unit) -> Unit {
     }
     return remember(launcher) {
         { onGranted ->
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
                 onGranted()
             } else {
                 pending = onGranted
-                launcher.launch(Manifest.permission.RECORD_AUDIO)
+                launcher.launch(permission)
             }
         }
     }
 }
+
+private fun Context.declaresPermission(permission: String): Boolean = runCatching {
+    @Suppress("DEPRECATION")
+    packageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS).requestedPermissions
+        ?.contains(permission) == true
+}.getOrDefault(false)
 
 private fun Context.findActivity(): Activity? {
     var c = this
