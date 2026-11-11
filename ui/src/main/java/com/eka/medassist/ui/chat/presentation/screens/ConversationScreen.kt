@@ -241,8 +241,8 @@ fun ConversationScreen(
                 allowFiles = cfg?.allows("file") ?: true,
                 attachments = state.attachments,
                 onSend = {
-                    viewModel.sendComposer(text.trim())
-                    text = ""
+                    // Offline: the text stays in the box so nothing typed is lost
+                    if (viewModel.sendComposer(text.trim())) text = ""
                 },
                 onAttach = onPickFiles,
                 onRemoveAttachment = viewModel::removeAttachment,
@@ -441,9 +441,10 @@ private fun greetingFor(hour: Int): String = when {
 
 /** Header subtitle, same wording as the old socket states. */
 fun getConnectionState(state: MedAssistUiState): String = when {
-    state.error != null && state.connection != ConnectionStatus.CONNECTED -> "Error : Connection Failed!"
+    state.offline -> "Offline · waiting for internet"
     state.connection == ConnectionStatus.CONNECTING && state.sessionId == null -> "Starting Session..."
-    state.connection == ConnectionStatus.CONNECTING -> "Connecting..."
+    state.connection == ConnectionStatus.CONNECTING -> "Reconnecting..."
+    state.error != null && state.connection != ConnectionStatus.CONNECTED -> "Error : Connection Failed!"
     state.connection == ConnectionStatus.CONNECTED -> "Connected"
     else -> "Disconnected"
 }

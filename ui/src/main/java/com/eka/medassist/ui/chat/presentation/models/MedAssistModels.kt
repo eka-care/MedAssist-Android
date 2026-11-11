@@ -85,6 +85,8 @@ data class MedAssistUiState(
     val isLoadingHistory: Boolean = false,
     val showExitFeedback: Boolean = false,
     val authExpired: Boolean = false,
+    /** No internet (OS says so, or a send got no reply); cleared when the socket reconnects. */
+    val offline: Boolean = false,
     val patient: com.eka.medassist.ui.chat.client.MedAssistPatient? = null,
     val doctor: com.eka.medassist.ui.chat.client.MedAssistDoctor? = null,
     val readingLabel: String? = null,

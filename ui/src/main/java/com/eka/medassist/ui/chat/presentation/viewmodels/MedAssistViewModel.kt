@@ -420,7 +420,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             }
             MatrixEvent.Connected -> {
                 resetConnectionStates()
-                _state.update { it.copy(connection = ConnectionStatus.CONNECTED) }
+                _state.update { it.copy(connection = ConnectionStatus.CONNECTED, offline = false) }
                 if (lostWhileWaiting) {
                     lostWhileWaiting = false
                     _state.update {
@@ -436,14 +436,14 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 hadStreamBreak = false
                 _state.update {
                     it.copy(
-                        connection = ConnectionStatus.NOT_CONNECTED, isStreaming = false, progressMessage = null,
+                        connection = ConnectionStatus.NOT_CONNECTED, isStreaming = false, progressMessage = null, offline = true,
                         error = UiError("No internet connection", "Will reconnect automatically when internet is restored."),
                         showRetry = false,
                     )
                 }
                 setWaiting(false)
             }
-            MatrixEvent.Online -> _state.update { it.copy(connection = ConnectionStatus.CONNECTING, error = null) }
+            MatrixEvent.Online -> _state.update { it.copy(connection = ConnectionStatus.CONNECTING, offline = false, error = null) }
             is MatrixEvent.ToolCall -> onToolCall(event)
             is MatrixEvent.Disconnected -> onDisconnected(event)
             is MatrixEvent.RealtimeError -> onRealtimeError(event.code)
@@ -874,15 +874,30 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     fun removeAttachment(file: MatrixFile) = _state.update { it.copy(attachments = it.attachments - file) }
 
     /** Composer send: text and/or attachments. */
-    fun sendComposer(text: String, toolKey: String? = null, toolCalled: Boolean = false) {
+    /** Composer send; false (text stays in the box) when it can't go out right now. */
+    fun sendComposer(text: String, toolKey: String? = null, toolCalled: Boolean = false): Boolean {
         val atts = _state.value.attachments
-        if (_state.value.isComposerDisabled) return
+        if (!isOnline()) {
+            _state.update {
+                it.copy(
+                    offline = true,
+                    connection = if (it.connection == ConnectionStatus.CONNECTED) ConnectionStatus.NOT_CONNECTED else it.connection,
+                    error = UiError("No internet connection", "Your message wasn't sent. Send it again when you're back online."),
+                    showRetry = false,
+                )
+            }
+            return false
+        }
+        if (_state.value.isComposerDisabled) return false
         if (atts.isNotEmpty()) {
             _state.update { it.copy(attachments = emptyList()) }
             sendMessage(SendOptions(message = text.trim(), files = atts))
         } else if (text.isNotBlank()) {
             sendMessage(SendOptions(message = text.trim(), toolKey = toolKey, toolCalled = toolCalled))
+        } else {
+            return false
         }
+        return true
     }
 
     // ================================================================== helpers
@@ -932,7 +947,9 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     private fun isOnline(): Boolean {
         val cm = getApplication<Application>().getSystemService(ConnectivityManager::class.java) ?: return true
         val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        // Validated = the network really reaches the internet, not just Wi-Fi/data switched on
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     private fun errorText(t: Throwable): String = (t as? MatrixApiException)?.body?.msg ?: t.message ?: "An unexpected error occurred"
