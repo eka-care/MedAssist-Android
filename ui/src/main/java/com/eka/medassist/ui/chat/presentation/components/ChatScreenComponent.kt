@@ -18,6 +18,7 @@ import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistViewModel
 import com.eka.ui.theme.EkaTheme
 import kotlinx.coroutines.launch
+import com.eka.medassist.ui.chat.presentation.voice.rememberMicPermission
 
 /**
  * Full MedAssist chat, ready to drop into any Activity's setContent:
@@ -38,6 +39,7 @@ fun MedAssistChat(
         key = "medassist-${args.agentId}",
         factory = MedAssistViewModel.Factory(context.applicationContext as Application, args),
     )
+    val withMicPermission = rememberMicPermission()
     val scope = rememberCoroutineScope()
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
@@ -52,6 +54,7 @@ fun MedAssistChat(
             onBackClick = onClose,
             onPickFiles = { pickFiles.launch(arrayOf("image/png", "image/jpeg", "application/pdf")) },
             onPickPatient = onPickPatient,
+            askMicrophonePermission = withMicPermission,
         )
     }
 }

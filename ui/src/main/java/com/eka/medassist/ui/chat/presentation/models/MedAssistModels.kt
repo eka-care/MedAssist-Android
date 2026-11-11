@@ -10,6 +10,9 @@ enum class Role { USER, ASSISTANT }
 
 enum class ConnectionStatus { CONNECTING, CONNECTED, NOT_CONNECTED }
 
+/** Dictation into the input (voice to text). */
+enum class VoiceStatus { IDLE, LISTENING, TRANSCRIBING }
+
 object Feedback {
     const val LIKE = "LIKE"
     const val DISLIKE = "DISLIKE"
@@ -21,6 +24,8 @@ data class ChatUiMessage(
     val content: String,
     val role: Role,
     val files: List<MatrixFile> = emptyList(),
+    /** Voice message; content stays blank until Matrix sends its transcript. */
+    val isAudio: Boolean = false,
     val toolKeys: List<String> = emptyList(),
     val isResponseFromTool: Boolean = false,
     val timestamp: Long = System.currentTimeMillis(),
@@ -82,6 +87,8 @@ data class MedAssistUiState(
     val patient: com.eka.medassist.ui.chat.client.MedAssistPatient? = null,
     val doctor: com.eka.medassist.ui.chat.client.MedAssistDoctor? = null,
     val readingLabel: String? = null,
+    val voiceStatus: VoiceStatus = VoiceStatus.IDLE,
+    val voiceStartedAt: Long = 0L,
 ) {
     /** Last message's last tool entry when it still accepts input (drives the composer swap). */
     val activeElicitation: Pair<String, ElicitationEntry>?
@@ -95,7 +102,8 @@ data class MedAssistUiState(
         get() = activeElicitation?.second?.component in com.eka.conversation.matrix.MatrixComponents.AUTH
 
     val isComposerDisabled: Boolean
-        get() = connection != ConnectionStatus.CONNECTED || isStreaming || isWaitingForResponse
+        get() = connection != ConnectionStatus.CONNECTED || isStreaming || isWaitingForResponse ||
+            voiceStatus == VoiceStatus.TRANSCRIBING
 
     val isEmptyChat: Boolean get() = messages.isEmpty()
 }
@@ -104,6 +112,7 @@ data class MedAssistUiState(
 data class SendOptions(
     val message: String? = null,
     val files: List<MatrixFile>? = null,
+    val audio: com.eka.conversation.matrix.media.AudioPayload? = null,
     val toolCalled: Boolean = false,
     val selectedComponent: JsonObject? = null,
     val resend: Boolean = false,

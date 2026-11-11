@@ -36,6 +36,10 @@ import com.eka.medassist.ui.chat.presentation.models.MedAssistUiState
 import com.eka.medassist.ui.chat.presentation.models.Role
 import com.eka.medassist.ui.chat.presentation.models.SendOptions
 import com.eka.medassist.ui.chat.presentation.models.UiError
+import com.eka.medassist.ui.chat.logger.MedAssistLogger
+import com.eka.medassist.ui.chat.presentation.models.VoiceStatus
+import com.eka.conversation.matrix.media.AudioMessageRecorder
+import com.eka.conversation.matrix.media.AudioPayload
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -378,6 +382,12 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     // ================================================================== realtime events
 
     private fun onEvent(event: MatrixEvent) {
+        // Any answer to a voice message ends its "transcribing" state
+        when (event) {
+            is MatrixEvent.MessageChunk, MatrixEvent.EndOfStream, is MatrixEvent.ToolCall,
+            is MatrixEvent.AudioTranscript, MatrixEvent.Offline, is MatrixEvent.RealtimeError -> clearTranscribing()
+            else -> Unit
+        }
         when (event) {
             is MatrixEvent.MessageChunk -> onChunk(event)
             MatrixEvent.EndOfStream -> {
@@ -415,8 +425,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             is MatrixEvent.ToolCall -> onToolCall(event)
             is MatrixEvent.Disconnected -> onDisconnected(event)
             is MatrixEvent.RealtimeError -> onRealtimeError(event.code)
-            // Voice messages are not offered in DocAssist, so no transcripts come back.
-            is MatrixEvent.AudioTranscript -> Unit
+            is MatrixEvent.AudioTranscript -> onAudioTranscript(event.text)
             is MatrixEvent.Progress -> {
                 hadStreamBreak = true
                 setWaiting(false)
@@ -603,7 +612,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     private suspend fun sendMessageInternal(o: SendOptions) {
         val s0 = _state.value
         val anyActive = s0.elicitations.values.any { it.active }
-        if (!o.toolCalled && o.files.isNullOrEmpty() && o.message.isNullOrBlank() &&
+        if (!o.toolCalled && o.files.isNullOrEmpty() && o.message.isNullOrBlank() && o.audio == null &&
             o.selectedComponent == null && !anyActive && o.toolResult.isNullOrEmpty()
         ) return
 
@@ -633,7 +642,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
         val isList = es?.component == MatrixComponents.DOCTOR_CARD || es?.component == MatrixComponents.CARD
         val canCallTool = if (isList) es != null && o.toolResult == null && es.active else es?.active == true
-        val shouldNotCallTool = !o.files.isNullOrEmpty() || o.toolDeclined || !canCallTool || !o.toolCalled
+        val shouldNotCallTool = !o.files.isNullOrEmpty() || o.audio != null || o.toolDeclined || !canCallTool || !o.toolCalled
         val pillLabel = (o.selectedComponent?.get("label") as? JsonPrimitive)?.contentOrNull
         val pillMessage = if (es?.component == MatrixComponents.PILL) pillLabel else null
 
@@ -692,6 +701,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 OutgoingRequest(
                     message = o.message.orEmpty(),
                     files = o.files?.ifEmpty { null },
+                    audio = o.audio,
                     initialPrompts = prevContext,
                     toolDeclined = declined,
                     // tool_id lets the server match a tool answer (auto-forward after success,
@@ -702,7 +712,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             )
         }
 
-        if (!o.message.isNullOrEmpty() || !o.files.isNullOrEmpty() || pillMessage != null || toolCallErrorMessage != null) {
+        if (!o.message.isNullOrEmpty() || !o.files.isNullOrEmpty() || o.audio != null || pillMessage != null || toolCallErrorMessage != null) {
             if (!isElicitation) {
                 _state.update { s ->
                     val prefix = if (s.messages.isEmpty() && !s.initialMessage?.text.isNullOrBlank())
@@ -712,6 +722,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                         content = pillMessage ?: toolCallErrorMessage ?: o.message.orEmpty(),
                         role = Role.USER,
                         files = o.files.orEmpty(),
+                        isAudio = o.audio != null,
                     ))
                 }
                 setWaiting(true)
@@ -869,7 +880,108 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     private fun errorText(t: Throwable): String = (t as? MatrixApiException)?.body?.msg ?: t.message ?: "An unexpected error occurred"
 
+    // ================================================================== voice input
+
+    /*
+     * Same as the web widget (synapse useChat): record one clip, send it to Matrix as a single
+     * base64 audio message; Matrix answers with audio_transcript (shown as the doctor's message)
+     * and then the agent's reply.
+     */
+    private val recorder = AudioMessageRecorder(app)
+    private var voiceTimeoutJob: Job? = null
+
+    /** Call once the mic permission is granted. */
+    fun startVoiceInput() {
+        val s = _state.value
+        if (s.voiceStatus != VoiceStatus.IDLE || recorder.isRecording) return
+        if (s.isComposerDisabled) {
+            _toasts.tryEmit(if (s.connection != ConnectionStatus.CONNECTED) "Not connected yet. Please try again in a moment." else "Wait for the reply to finish.")
+            return
+        }
+        val startedAt = System.currentTimeMillis()
+        recorder.start(
+            onDone = { audio -> onVoiceRecorded(audio) },
+            onError = { e ->
+                MedAssistLogger.d("MedAssist", "voice: recording failed: ${e.message}")
+                setVoiceIdle()
+                // MediaRecorder.stop() throws when stopped right after start
+                _toasts.tryEmit(
+                    if (System.currentTimeMillis() - startedAt < MIN_VOICE_MS) "Didn't catch that. Tap the mic and speak a little longer."
+                    else "Couldn't use the microphone. It may be in use by another app."
+                )
+            },
+        )
+        if (recorder.isRecording) {
+            _state.update { it.copy(voiceStatus = VoiceStatus.LISTENING, voiceStartedAt = startedAt) }
+        }
+    }
+
+    /** Stop listening and send the clip (also called by the recorder's 15-minute cap). */
+    fun finishVoiceInput() {
+        if (_state.value.voiceStatus != VoiceStatus.LISTENING) return
+        recorder.stop()
+    }
+
+    private fun onVoiceRecorded(audio: AudioPayload) {
+        if (audio.durationMs < MIN_VOICE_MS) {
+            setVoiceIdle()
+            _toasts.tryEmit("Didn't catch that. Tap the mic and speak a little longer.")
+            return
+        }
+        val s = _state.value
+        if (!isOnline() || s.connection != ConnectionStatus.CONNECTED) {
+            setVoiceIdle()
+            _toasts.tryEmit("You're offline, so the voice message wasn't sent. Please try again.")
+            return
+        }
+        _state.update { it.copy(voiceStatus = VoiceStatus.TRANSCRIBING) }
+        viewModelScope.launch {
+            sendMessageInternal(SendOptions(audio = audio))
+            voiceTimeoutJob?.cancel()
+            voiceTimeoutJob = viewModelScope.launch {
+                delay(VOICE_TIMEOUT_MS)
+                if (_state.value.voiceStatus == VoiceStatus.TRANSCRIBING) {
+                    setVoiceIdle()
+                    _state.update {
+                        it.copy(error = UiError("Couldn't transcribe your voice message", "Please try again."), showRetry = false)
+                    }
+                    setWaiting(false)
+                }
+            }
+        }
+    }
+
+    /** The doctor's words: fill the "Voice message" bubble; the reply follows. */
+    private fun onAudioTranscript(text: String) {
+        streamIdleJob?.cancel()
+        _state.update { s ->
+            val i = s.messages.indexOfLast { it.role == Role.USER && it.isAudio && it.content.isBlank() }
+            val messages = if (i >= 0) s.messages.toMutableList().also { it[i] = it[i].copy(content = text) }
+            else s.messages + ChatUiMessage(id = System.currentTimeMillis().toString(), content = text, role = Role.USER)
+            s.copy(messages = messages, isStreaming = false, progressMessage = null)
+        }
+        // The reply follows the transcript, so keep "Thinking" up
+        setWaiting(true)
+    }
+
+    /** The server answered (transcript, reply, tool, error or offline): stop showing "transcribing". */
+    private fun clearTranscribing() {
+        voiceTimeoutJob?.cancel()
+        if (_state.value.voiceStatus == VoiceStatus.TRANSCRIBING) setVoiceIdle()
+    }
+
+    /** Drop a recording in progress (cancel tapped, app backgrounded, new chat). A sent clip can't be recalled. */
+    fun cancelVoiceInput() {
+        if (_state.value.voiceStatus != VoiceStatus.LISTENING) return
+        recorder.cancel()
+        setVoiceIdle()
+    }
+
+    private fun setVoiceIdle() = _state.update { it.copy(voiceStatus = VoiceStatus.IDLE) }
+
     override fun onCleared() {
+        recorder.cancel()
+        voiceTimeoutJob?.cancel()
         client.destroy()
         super.onCleared()
     }
@@ -880,6 +992,9 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     }
 
     companion object {
+        /** Shorter than this is treated as an accidental tap. */
+        private const val MIN_VOICE_MS = 700L
+        private const val VOICE_TIMEOUT_MS = 30_000L
         const val INITIAL_BOT_MESSAGE_ID = "initial-bot-message"
         private const val STREAM_IDLE_TIMEOUT_MS = 30_000L
         private const val RESPONSE_TIMEOUT_MS = 30_000L

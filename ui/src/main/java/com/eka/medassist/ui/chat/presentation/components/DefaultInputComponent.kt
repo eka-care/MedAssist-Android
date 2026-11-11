@@ -19,7 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
@@ -40,7 +43,8 @@ import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
 /**
- * Text input: attach (+) on the left, send on the right, pending attachments above.
+ * Text input: attach (+) on the left, mic (voice to text) and send on the right, pending
+ * attachments above.
  * The text is hoisted so the screen can clear it on send / new chat.
  */
 @Composable
@@ -55,6 +59,8 @@ fun DefaultInputComponent(
     onRemoveAttachment: (MatrixFile) -> Unit = {},
     /** "Currently reading <label>" tab above the field. */
     readingLabel: String? = null,
+    /** Starts dictation; null hides the mic. */
+    onMicrophoneClick: (() -> Unit)? = null,
 ) {
     val hasContent = query.isNotBlank() || attachments.isNotEmpty()
     Column(
@@ -119,15 +125,28 @@ fun DefaultInputComponent(
                 }
             },
             trailingIcon = {
-                InputIcon(
-                    modifier = Modifier.rotate(90f),
-                    icon = R.drawable.ic_arrow_left_regular,
-                    enabled = sendEnabled && hasContent,
-                    onClick = {
-                        onSend()
-                        focusRequester.freeFocus()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    onMicrophoneClick?.let { mic ->
+                        IconButton(onClick = mic) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_microphone_regular),
+                                contentDescription = "Voice input",
+                                tint = DarwinTouchNeutral800,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                )
+                    InputIcon(
+                        modifier = Modifier.rotate(90f),
+                        icon = R.drawable.ic_arrow_left_regular,
+                        enabled = sendEnabled && hasContent,
+                        onClick = {
+                            onSend()
+                            focusRequester.freeFocus()
+                        }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
             }
         )
     }

@@ -75,6 +75,7 @@ import com.eka.medassist.ui.chat.presentation.components.elicitation.ExitFeedbac
 import com.eka.medassist.ui.chat.presentation.models.ConnectionStatus
 import com.eka.medassist.ui.chat.presentation.models.MedAssistUiState
 import com.eka.medassist.ui.chat.presentation.models.Role
+import com.eka.medassist.ui.chat.presentation.models.VoiceStatus
 import com.eka.medassist.ui.chat.presentation.models.SendOptions
 import com.eka.medassist.ui.chat.presentation.states.rememberTypewriterText
 import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistViewModel
@@ -97,6 +98,8 @@ fun ConversationScreen(
     onPickFiles: () -> Unit,
     /** Host's patient picker; null hides the patient chip. */
     onPickPatient: ((onPicked: (MedAssistPatient) -> Unit) -> Unit)? = null,
+    /** Runs the action once the mic permission is granted; null hides the mic. */
+    askMicrophonePermission: ((onGranted: () -> Unit) -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -106,7 +109,14 @@ fun ConversationScreen(
     LaunchedEffect(Unit) { viewModel.toasts.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() } }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) viewModel.onForeground() }
+        val obs = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_RESUME -> viewModel.onForeground()
+                // The mic can't keep recording in the background; drop the clip
+                Lifecycle.Event.ON_STOP -> viewModel.cancelVoiceInput()
+                else -> Unit
+            }
+        }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
@@ -116,24 +126,26 @@ fun ConversationScreen(
             sessions = state.pastSessions,
             loading = state.isLoadingHistory,
             currentSessionId = state.sessionId,
-            onSessionClick = { showHistory = false; text = ""; viewModel.openPastSession(it) },
-            onNewChatClick = { showHistory = false; text = ""; viewModel.startNewChat() },
+            onSessionClick = { showHistory = false; text = ""; viewModel.cancelVoiceInput(); viewModel.openPastSession(it) },
+            onNewChatClick = { showHistory = false; text = ""; viewModel.cancelVoiceInput(); viewModel.startNewChat() },
             onBackClick = { showHistory = false },
         )
         return
     }
 
     val requestClose = { if (!viewModel.onCloseRequested()) onBackClick() }
-    BackHandler { requestClose() }
+    BackHandler {
+        if (state.voiceStatus != VoiceStatus.IDLE) viewModel.cancelVoiceInput() else requestClose()
+    }
 
     val cfg = state.agentConfig
-    val startNewChat = { text = ""; viewModel.startNewChat() }
+    val startNewChat = { text = ""; viewModel.cancelVoiceInput(); viewModel.startNewChat() }
 
     // Changing the patient starts a new chat, so ask first once the doctor has said something
     var pendingPatient by remember { mutableStateOf<PatientChange?>(null) }
     val changePatient: (MedAssistPatient?) -> Unit = { p ->
         if (state.messages.any { it.role == Role.USER }) pendingPatient = PatientChange(p)
-        else { text = ""; viewModel.attachPatient(p) }
+        else { text = ""; viewModel.cancelVoiceInput(); viewModel.attachPatient(p) }
     }
     pendingPatient?.let { change ->
         PermissionAlertDialog(
@@ -145,6 +157,7 @@ fun ConversationScreen(
             onConfirm = {
                 pendingPatient = null
                 text = ""
+                viewModel.cancelVoiceInput()
                 viewModel.attachPatient(change.patient)
             },
         )
@@ -209,7 +222,10 @@ fun ConversationScreen(
         }
 
         val active = state.activeElicitation
-        if (active != null && active.second.component in MatrixComponents.AUTH) {
+        val isAuthInput = active != null && active.second.component in MatrixComponents.AUTH
+        // The OTP / mobile input replaces the composer; don't keep recording behind it
+        LaunchedEffect(isAuthInput) { if (isAuthInput) viewModel.cancelVoiceInput() }
+        if (active != null && isAuthInput) {
             AuthElicitationInput(
                 entry = active.second,
                 disabled = state.isComposerDisabled,
@@ -231,6 +247,14 @@ fun ConversationScreen(
                 onAttach = onPickFiles,
                 onRemoveAttachment = viewModel::removeAttachment,
                 readingLabel = state.readingLabel,
+                voiceStatus = state.voiceStatus,
+                voiceStartedAt = state.voiceStartedAt,
+                // Voice messages, like the web widget: shown when the agent allows audio
+                onMicrophoneClick = if ((cfg?.allows("audio") ?: true) && askMicrophonePermission != null) {
+                    { askMicrophonePermission { viewModel.startVoiceInput() } }
+                } else null,
+                onVoiceDone = viewModel::finishVoiceInput,
+                onVoiceCancel = viewModel::cancelVoiceInput,
             )
         }
     }
