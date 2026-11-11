@@ -40,6 +40,7 @@ import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.presentation.models.VoiceStatus
 import com.eka.conversation.matrix.media.AudioMessageRecorder
 import com.eka.conversation.matrix.media.AudioPayload
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -153,8 +154,25 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     // ================================================================== session
 
+    /**
+     * One session switch at a time: a newer one (new chat, history pick, patient change) cancels
+     * the one in flight, so a slow earlier switch can't land on the old chat afterwards.
+     */
+    private var sessionJob: Job? = null
+
+    private fun switchSession(block: suspend () -> Unit) {
+        sessionJob?.cancel()
+        sessionJob = viewModelScope.launch { block() }
+    }
+
+    /** Reconnect the current chat, unless a switch is already connecting one. */
+    private fun reconnectCurrent() {
+        if (sessionJob?.isActive == true) return
+        sessionJob = viewModelScope.launch { startSessionCore(_state.value.sessionId ?: storedSessionId) }
+    }
+
     fun startSession(forceNewSession: Boolean = false, sessionId: String? = null) {
-        viewModelScope.launch {
+        switchSession {
             if (forceNewSession) {
                 _state.update {
                     it.copy(connection = ConnectionStatus.CONNECTING, messages = emptyList(), elicitations = emptyMap(),
@@ -165,7 +183,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 resetConnectionStates()
                 fileUploadsThisSession = 0
                 startSessionCore(null)
-                return@launch
+                return@switchSession
             }
             val active = _state.value.sessionId ?: storedSessionId
             val target = sessionId ?: active
@@ -195,6 +213,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             }
             session.error?.msg?.let { _toasts.tryEmit(it) }
         } catch (e: Throwable) {
+            if (e is CancellationException) throw e // superseded by a newer switch
             if (e is MatrixApiException && e.reason != null) return
             if ((e as? MatrixApiException)?.status == 404) {
                 _state.update { it.copy(error = null, connection = ConnectionStatus.NOT_CONNECTED, startNewConnection = true) }
@@ -328,7 +347,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 _state.update { it.copy(connection = ConnectionStatus.NOT_CONNECTED) }
                 if (retryAttempts < 2) {
                     retryAttempts++
-                    viewModelScope.launch { startSessionCore(_state.value.sessionId ?: storedSessionId) }
+                    reconnectCurrent()
                 } else {
                     _state.update { it.copy(showRetry = true, error = UiError("Trying to connect...", e.message)) }
                 }
@@ -364,7 +383,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             if (!client.isConnected()) {
                 _state.update { it.copy(connection = ConnectionStatus.NOT_CONNECTED) }
                 when {
-                    retryAttempts < 2 -> { retryAttempts++; startSessionCore(_state.value.sessionId ?: storedSessionId) }
+                    retryAttempts < 2 -> { retryAttempts++; reconnectCurrent() }
                     retryAttempts == 2 -> { retryAttempts++; _state.update { it.copy(showRetry = true, error = UiError("Trying to connect...")) } }
                     else -> _state.update { it.copy(error = UiError("Something went wrong!", "Please start a new chat."), startNewConnection = true) }
                 }
