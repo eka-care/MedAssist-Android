@@ -68,7 +68,7 @@ import com.eka.medassist.ui.chat.theme.touchFootnoteRegular
 import com.eka.medassist.ui.chat.theme.touchHeadlineBold
 
 /**
- * MedAssist chat on Matrix. The host provides file picking and the mic permission prompt;
+ * MedAssist chat on Matrix. The host provides file picking;
  * everything else (history, feedback, elicitations, reconnects) is handled here.
  */
 @Composable
@@ -76,7 +76,6 @@ fun ConversationScreen(
     viewModel: MedAssistViewModel,
     onBackClick : () -> Unit,
     onPickFiles: () -> Unit,
-    askMicrophonePermission : (onGranted: () -> Unit) -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -172,8 +171,6 @@ fun ConversationScreen(
                 text = text,
                 onTextChange = { text = it },
                 sendEnabled = !state.isComposerDisabled,
-                recordingStatus = state.recordingStatus,
-                allowAudio = cfg?.allows("audio") ?: true,
                 allowFiles = cfg?.allows("file") ?: true,
                 attachments = state.attachments,
                 onSend = {
@@ -182,9 +179,6 @@ fun ConversationScreen(
                 },
                 onAttach = onPickFiles,
                 onRemoveAttachment = viewModel::removeAttachment,
-                onMicrophoneClick = { askMicrophonePermission { viewModel.startRecording() } },
-                onStopRecording = viewModel::stopRecording,
-                onCancelRecording = viewModel::cancelRecording,
             )
         }
     }

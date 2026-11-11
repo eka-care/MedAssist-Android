@@ -10,8 +10,6 @@ enum class Role { USER, ASSISTANT }
 
 enum class ConnectionStatus { CONNECTING, CONNECTED, NOT_CONNECTED }
 
-enum class RecordingStatus { IDLE, LISTENING, PROCESSING, TRANSCRIBING }
-
 object Feedback {
     const val LIKE = "LIKE"
     const val DISLIKE = "DISLIKE"
@@ -23,7 +21,6 @@ data class ChatUiMessage(
     val content: String,
     val role: Role,
     val files: List<MatrixFile> = emptyList(),
-    val isAudio: Boolean = false,
     val toolKeys: List<String> = emptyList(),
     val isResponseFromTool: Boolean = false,
     val timestamp: Long = System.currentTimeMillis(),
@@ -73,7 +70,6 @@ data class MedAssistUiState(
     val error: UiError? = null,
     val showRetry: Boolean = false,
     val startNewConnection: Boolean = false,
-    val recordingStatus: RecordingStatus = RecordingStatus.IDLE,
     val initialMessage: InitialMessage? = null,
     val agentConfig: AgentConfig? = null,
     val sessionId: String? = null,
@@ -96,8 +92,7 @@ data class MedAssistUiState(
         get() = activeElicitation?.second?.component in com.eka.conversation.matrix.MatrixComponents.AUTH
 
     val isComposerDisabled: Boolean
-        get() = connection != ConnectionStatus.CONNECTED || isStreaming || isWaitingForResponse ||
-            recordingStatus == RecordingStatus.PROCESSING || recordingStatus == RecordingStatus.TRANSCRIBING
+        get() = connection != ConnectionStatus.CONNECTED || isStreaming || isWaitingForResponse
 
     val isEmptyChat: Boolean get() = messages.isEmpty()
 }
@@ -106,7 +101,6 @@ data class MedAssistUiState(
 data class SendOptions(
     val message: String? = null,
     val files: List<MatrixFile>? = null,
-    val audio: com.eka.conversation.matrix.media.AudioPayload? = null,
     val toolCalled: Boolean = false,
     val selectedComponent: JsonObject? = null,
     val resend: Boolean = false,

@@ -49,7 +49,6 @@ import com.eka.medassist.ui.R
 import com.eka.conversation.matrix.MatrixComponents
 import com.eka.conversation.matrix.media.MatrixFile
 import com.eka.medassist.ui.chat.presentation.models.ElicitationEntry
-import com.eka.medassist.ui.chat.presentation.models.RecordingStatus
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral200

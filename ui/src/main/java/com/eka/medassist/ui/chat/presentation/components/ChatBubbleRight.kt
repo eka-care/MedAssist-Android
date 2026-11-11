@@ -26,7 +26,7 @@ import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
-/** Doctor's message: white card on the right, with attached files and voice messages. */
+/** Doctor's message: white card on the right, with attached files. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatBubbleRight(
@@ -58,18 +58,6 @@ fun ChatBubbleRight(
                             modifier = Modifier.padding(bottom = if (message.content.isBlank()) 0.dp else 8.dp)
                         ) {
                             message.files.forEach { FileChip(it) }
-                        }
-                    }
-                    if (message.isAudio && message.content.isBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_microphone_regular),
-                                contentDescription = null,
-                                tint = DarwinTouchPrimary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Voice message", style = touchBodyRegular, color = DarwinTouchNeutral800)
                         }
                     }
                     if (message.content.isNotBlank()) {

@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Full MedAssist chat, ready to drop into any Activity's setContent:
- * owns the ViewModel, the file picker and the microphone permission flow.
+ * owns the ViewModel and the file picker.
  */
 @Composable
 fun MedAssistChat(
@@ -40,25 +40,11 @@ fun MedAssistChat(
             viewModel.addAttachments(files)
         }
     }
-    var pendingMicAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-
     EkaTheme {
-        pendingMicAction?.let { action ->
-            MicrophonePermissionAlertDialog(
-                onConfirm = {
-                    pendingMicAction = null
-                    action()
-                },
-                onDismiss = { pendingMicAction = null }
-            )
-        }
         ConversationScreen(
             viewModel = viewModel,
             onBackClick = onClose,
             onPickFiles = { pickFiles.launch(arrayOf("image/png", "image/jpeg", "application/pdf")) },
-            askMicrophonePermission = { onGranted ->
-                if (hasRecordAudioPermission(context)) onGranted() else pendingMicAction = onGranted
-            },
         )
     }
 }

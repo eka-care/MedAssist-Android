@@ -24,7 +24,6 @@ import com.eka.conversation.matrix.RecoveryReason
 import com.eka.conversation.matrix.StoredMessage
 import com.eka.conversation.matrix.TokenExchangeResponse
 import com.eka.conversation.matrix.connection.DisconnectReason
-import com.eka.conversation.matrix.media.AudioMessageRecorder
 import com.eka.conversation.matrix.media.MatrixFile
 import com.eka.conversation.matrix.str
 import com.eka.medassist.ui.chat.presentation.models.ChatUiMessage
@@ -32,7 +31,6 @@ import com.eka.medassist.ui.chat.presentation.models.ConnectionStatus
 import com.eka.medassist.ui.chat.presentation.models.ElicitationEntry
 import com.eka.medassist.ui.chat.presentation.models.Feedback
 import com.eka.medassist.ui.chat.presentation.models.MedAssistUiState
-import com.eka.medassist.ui.chat.presentation.models.RecordingStatus
 import com.eka.medassist.ui.chat.presentation.models.Role
 import com.eka.medassist.ui.chat.presentation.models.SendOptions
 import com.eka.medassist.ui.chat.presentation.models.UiError
@@ -82,7 +80,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     val toasts: SharedFlow<String> = _toasts.asSharedFlow()
 
     private val client: MatrixClient
-    private val recorder = AudioMessageRecorder(app)
 
     private var retryAttempts = 0
     private var hadStreamBreak = false
@@ -93,7 +90,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     private var exitFeedbackShown = false
     /** A reply was pending when the network dropped, so that message was likely lost. */
     private var lostWhileWaiting = false
-    private var transcribeTimeoutJob: Job? = null
 
     init {
         // A different doctor (or a re-login) must not resume someone else's Matrix identity.
@@ -266,7 +262,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                     it.copy(connection = ConnectionStatus.NOT_CONNECTED, error = UiError("Something went wrong!", e.message), showRetry = true)
                 }
             }
-            MatrixErrorCode.RECORDING -> _state.update { it.copy(error = UiError("Recording failed", e.message)) }
+            MatrixErrorCode.RECORDING -> Unit
             MatrixErrorCode.CONNECTION -> if (!client.isConnected()) {
                 _state.update { it.copy(connection = ConnectionStatus.NOT_CONNECTED) }
                 if (retryAttempts < 2) {
@@ -326,11 +322,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     private fun onEvent(event: MatrixEvent) {
         when (event) {
-            is MatrixEvent.MessageChunk, MatrixEvent.EndOfStream, is MatrixEvent.ToolCall,
-            is MatrixEvent.AudioTranscript, MatrixEvent.Offline, is MatrixEvent.RealtimeError -> clearTranscribing()
-            else -> Unit
-        }
-        when (event) {
             is MatrixEvent.MessageChunk -> onChunk(event)
             MatrixEvent.EndOfStream -> {
                 streamIdleJob?.cancel()
@@ -367,13 +358,8 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             is MatrixEvent.ToolCall -> onToolCall(event)
             is MatrixEvent.Disconnected -> onDisconnected(event)
             is MatrixEvent.RealtimeError -> onRealtimeError(event.code)
-            is MatrixEvent.AudioTranscript -> {
-                appendMessage(ChatUiMessage(id = System.currentTimeMillis().toString(), content = event.text, role = Role.USER))
-                streamIdleJob?.cancel()
-                _state.update { it.copy(recordingStatus = RecordingStatus.IDLE, isStreaming = false, progressMessage = null) }
-                // The reply follows the transcript, so keep the "thinking" indicator up.
-                setWaiting(true)
-            }
+            // Voice messages are not offered in DocAssist, so no transcripts come back.
+            is MatrixEvent.AudioTranscript -> Unit
             is MatrixEvent.Progress -> {
                 hadStreamBreak = true
                 setWaiting(false)
@@ -382,14 +368,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             is MatrixEvent.Tips -> _state.update { it.copy(tips = event.tips) }
             is MatrixEvent.ToolStart -> setToolStatus(event.messageId, "Calling tool: ${event.name ?: ""}...", event.name)
             is MatrixEvent.ToolEnd -> setToolStatus(event.messageId, "Tool call completed.", event.name)
-        }
-    }
-
-    /** The server answered (transcript, reply, tool or end of stream): the voice note is no longer "transcribing". */
-    private fun clearTranscribing() {
-        transcribeTimeoutJob?.cancel()
-        if (_state.value.recordingStatus == RecordingStatus.TRANSCRIBING || _state.value.recordingStatus == RecordingStatus.PROCESSING) {
-            _state.update { it.copy(recordingStatus = RecordingStatus.IDLE) }
         }
     }
 
@@ -467,11 +445,10 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     }
 
     private fun onRealtimeError(code: String?) {
-        val idle = RecordingStatus.IDLE
         when (code) {
-            RealtimeErrorCodes.SESSION_INACTIVE -> _state.update { it.copy(startNewConnection = true, recordingStatus = idle) }
+            RealtimeErrorCodes.SESSION_INACTIVE -> _state.update { it.copy(startNewConnection = true) }
             RealtimeErrorCodes.SESSION_TOKEN_MISMATCH -> _state.update {
-                it.copy(error = UiError("Session not found", "Please start a new chat"), startNewConnection = true, recordingStatus = idle)
+                it.copy(error = UiError("Session not found", "Please start a new chat"), startNewConnection = true)
             }
             RealtimeErrorCodes.SESSION_NOT_OWNED -> handleStartNewConnection()
             RealtimeErrorCodes.INVALID_EVENT, RealtimeErrorCodes.INVALID_CONTENT_TYPE -> Unit
@@ -479,12 +456,12 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 retryAttempts++
                 retry()
             } else {
-                _state.update { it.copy(error = UiError("Error parsing request", "please try again"), showRetry = true, recordingStatus = idle) }
+                _state.update { it.copy(error = UiError("Error parsing request", "please try again"), showRetry = true) }
             }
             RealtimeErrorCodes.TIMEOUT -> _state.update {
-                it.copy(error = UiError("Request timed out", "please try again"), showRetry = true, recordingStatus = idle)
+                it.copy(error = UiError("Request timed out", "please try again"), showRetry = true)
             }
-            else -> _state.update { it.copy(error = UiError("Something went wrong", "please try again"), showRetry = true, recordingStatus = idle) }
+            else -> _state.update { it.copy(error = UiError("Something went wrong", "please try again"), showRetry = true) }
         }
         _state.update { it.copy(isStreaming = false, progressMessage = null) }
         setWaiting(false)
@@ -569,7 +546,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     private suspend fun sendMessageInternal(o: SendOptions) {
         val s0 = _state.value
         val anyActive = s0.elicitations.values.any { it.active }
-        if (!o.toolCalled && o.files.isNullOrEmpty() && o.message.isNullOrBlank() && o.audio == null &&
+        if (!o.toolCalled && o.files.isNullOrEmpty() && o.message.isNullOrBlank() &&
             o.selectedComponent == null && !anyActive && o.toolResult.isNullOrEmpty()
         ) return
 
@@ -599,7 +576,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
         val isList = es?.component == MatrixComponents.DOCTOR_CARD || es?.component == MatrixComponents.CARD
         val canCallTool = if (isList) es != null && o.toolResult == null && es.active else es?.active == true
-        val shouldNotCallTool = !o.files.isNullOrEmpty() || o.audio != null || o.toolDeclined || !canCallTool || !o.toolCalled
+        val shouldNotCallTool = !o.files.isNullOrEmpty() || o.toolDeclined || !canCallTool || !o.toolCalled
         val pillLabel = (o.selectedComponent?.get("label") as? JsonPrimitive)?.contentOrNull
         val pillMessage = if (es?.component == MatrixComponents.PILL) pillLabel else null
 
@@ -658,7 +635,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 OutgoingRequest(
                     message = o.message.orEmpty(),
                     files = o.files?.ifEmpty { null },
-                    audio = o.audio,
                     initialPrompts = prevContext,
                     toolDeclined = declined,
                     // tool_id lets the server match a tool answer (auto-forward after success,
@@ -669,7 +645,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             )
         }
 
-        if (!o.message.isNullOrEmpty() || !o.files.isNullOrEmpty() || o.audio != null || pillMessage != null || toolCallErrorMessage != null) {
+        if (!o.message.isNullOrEmpty() || !o.files.isNullOrEmpty() || pillMessage != null || toolCallErrorMessage != null) {
             if (!isElicitation) {
                 _state.update { s ->
                     val prefix = if (s.messages.isEmpty() && !s.initialMessage?.text.isNullOrBlank())
@@ -679,7 +655,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                         content = pillMessage ?: toolCallErrorMessage ?: o.message.orEmpty(),
                         role = Role.USER,
                         files = o.files.orEmpty(),
-                        isAudio = o.audio != null,
                     ))
                 }
                 setWaiting(true)
@@ -785,41 +760,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         }
     }
 
-    fun startRecording() {
-        if (recorder.isRecording) return
-        recorder.start(
-            onDone = { audio ->
-                _state.update { it.copy(recordingStatus = RecordingStatus.PROCESSING) }
-                viewModelScope.launch {
-                    sendMessageInternal(SendOptions(audio = audio))
-                    _state.update { it.copy(recordingStatus = RecordingStatus.TRANSCRIBING) }
-                    transcribeTimeoutJob?.cancel()
-                    transcribeTimeoutJob = viewModelScope.launch {
-                        delay(TRANSCRIBE_TIMEOUT_MS)
-                        if (_state.value.recordingStatus == RecordingStatus.TRANSCRIBING) {
-                            _state.update {
-                                it.copy(recordingStatus = RecordingStatus.IDLE,
-                                    error = UiError("Couldn't transcribe your voice note", "Please try again."), showRetry = false)
-                            }
-                            setWaiting(false)
-                        }
-                    }
-                }
-            },
-            onError = { e ->
-                _state.update { it.copy(recordingStatus = RecordingStatus.IDLE, error = UiError("Recording failed", e.message)) }
-            },
-        )
-        if (recorder.isRecording) _state.update { it.copy(recordingStatus = RecordingStatus.LISTENING) }
-    }
-
-    fun stopRecording() = recorder.stop()
-
-    fun cancelRecording() {
-        recorder.cancel()
-        _state.update { it.copy(recordingStatus = RecordingStatus.IDLE) }
-    }
-
     // ================================================================== helpers
 
     private fun appendMessage(m: ChatUiMessage) = _state.update { it.copy(messages = it.messages + m) }
@@ -873,7 +813,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
     private fun errorText(t: Throwable): String = (t as? MatrixApiException)?.body?.msg ?: t.message ?: "An unexpected error occurred"
 
     override fun onCleared() {
-        recorder.cancel()
         client.destroy()
         super.onCleared()
     }
@@ -887,7 +826,6 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         const val INITIAL_BOT_MESSAGE_ID = "initial-bot-message"
         private const val STREAM_IDLE_TIMEOUT_MS = 30_000L
         private const val RESPONSE_TIMEOUT_MS = 30_000L
-        private const val TRANSCRIBE_TIMEOUT_MS = 30_000L
     }
 }
 

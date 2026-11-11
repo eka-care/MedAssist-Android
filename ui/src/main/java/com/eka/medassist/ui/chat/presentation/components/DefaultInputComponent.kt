@@ -39,8 +39,8 @@ import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
 
 /**
- * Text input: attach (+) on the left, send / mic on the right, pending attachments above.
- * The text is hoisted so a voice transcript or a reset can drive it.
+ * Text input: attach (+) on the left, send on the right, pending attachments above.
+ * The text is hoisted so the screen can clear it on send / new chat.
  */
 @Composable
 fun DefaultInputComponent(
@@ -48,9 +48,7 @@ fun DefaultInputComponent(
     query: String,
     onQueryChange: (String) -> Unit,
     onSend: () -> Unit,
-    onMicrophoneClick: () -> Unit,
     sendEnabled: Boolean = true,
-    showMicrophone: Boolean = true,
     onAttachClick: (() -> Unit)? = null,
     attachments: List<MatrixFile> = emptyList(),
     onRemoveAttachment: (MatrixFile) -> Unit = {},
@@ -114,23 +112,15 @@ fun DefaultInputComponent(
                 }
             },
             trailingIcon = {
-                if (hasContent || !showMicrophone) {
-                    InputIcon(
-                        modifier = Modifier.rotate(90f),
-                        icon = R.drawable.ic_arrow_left_regular,
-                        enabled = sendEnabled && hasContent,
-                        onClick = {
-                            onSend()
-                            focusRequester.freeFocus()
-                        }
-                    )
-                } else {
-                    InputIcon(
-                        icon = R.drawable.ic_microphone_regular,
-                        enabled = sendEnabled,
-                        onClick = onMicrophoneClick
-                    )
-                }
+                InputIcon(
+                    modifier = Modifier.rotate(90f),
+                    icon = R.drawable.ic_arrow_left_regular,
+                    enabled = sendEnabled && hasContent,
+                    onClick = {
+                        onSend()
+                        focusRequester.freeFocus()
+                    }
+                )
             }
         )
     }
