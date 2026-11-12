@@ -42,10 +42,10 @@ object MedAssistSDK {
         val cache = ChatCache(app, agentId)
         // Same rule as the chat: another doctor's identity and chats must not carry over
         val fingerprint = AuthIdentity.of(authToken)
-        if (prefs.lastAuthToken != fingerprint) {
+        if (prefs.lastDoctorId != fingerprint) {
             prefs.clearUser()
             cache.clear()
-            prefs.lastAuthToken = fingerprint
+            prefs.lastDoctorId = fingerprint
         }
         val client = MatrixClient(
             context = app,

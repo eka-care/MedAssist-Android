@@ -10,12 +10,32 @@ import org.json.JSONObject
 class MedAssistPrefs(context: Context, agentId: String) {
     private val prefs = context.getSharedPreferences("medassist_" + agentId.hashCode(), Context.MODE_PRIVATE)
 
-    fun credentials() = StoredCredentials(
-        sessToken = prefs.getString(SESS, null),
-        refreshToken = prefs.getString(REFRESH, null),
-        level = prefs.getString(LEVEL, null),
-        userId = prefs.getString(USER, null),
-    )
+    fun credentials(): StoredCredentials {
+        val rawSess = prefs.getString(SESS, null)
+        val rawRefresh = prefs.getString(REFRESH, null)
+        val sess = TokenCipher.decrypt(rawSess)
+        val refresh = TokenCipher.decrypt(rawRefresh)
+        // Saved before encryption: store them encrypted now (no re-login needed)
+        if ((rawSess != null && !TokenCipher.isEncrypted(rawSess)) || (rawRefresh != null && !TokenCipher.isEncrypted(rawRefresh))) {
+            writeTokens(sess, refresh)
+        }
+        return StoredCredentials(
+            sessToken = sess,
+            refreshToken = refresh,
+            level = prefs.getString(LEVEL, null),
+            userId = prefs.getString(USER, null),
+        )
+    }
+
+    /** Tokens are stored encrypted; if encryption is unavailable they are not stored at all. */
+    private fun writeTokens(sess: String?, refresh: String?) {
+        val encSess = TokenCipher.encrypt(sess)
+        val encRefresh = TokenCipher.encrypt(refresh)
+        prefs.edit().apply {
+            if (encSess != null && encRefresh != null) putString(SESS, encSess).putString(REFRESH, encRefresh)
+            else remove(SESS).remove(REFRESH)
+        }.apply()
+    }
 
     var sessionId: String?
         get() = prefs.getString(SESSION, null)
@@ -64,14 +84,14 @@ class MedAssistPrefs(context: Context, agentId: String) {
 
     val level: String? get() = prefs.getString(LEVEL, null)
 
-    var lastAuthToken: String?
-        get() = prefs.getString(PARTNER, null)
-        set(value) = prefs.edit().putString(PARTNER, value).apply()
+    /** Who the stored chats belong to ([AuthIdentity] of the host token: the doctor, not the token). */
+    var lastDoctorId: String?
+        get() = prefs.getString(DOCTOR, null)
+        set(value) = prefs.edit().putString(DOCTOR, value).apply()
 
     fun saveTokens(t: TokenExchangeResponse) {
+        writeTokens(t.sessToken, t.refreshToken)
         prefs.edit()
-            .putString(SESS, t.sessToken)
-            .putString(REFRESH, t.refreshToken)
             .apply {
                 t.level?.let { putString(LEVEL, it) }
                 t.userId?.let { putString(USER, it) }
@@ -103,6 +123,7 @@ class MedAssistPrefs(context: Context, agentId: String) {
         const val USER = "user_id"
         const val SESSION = "session_id"
         const val PATIENT = "patient:"
-        const val PARTNER = "partner_token_hash"
+        /** Old key name kept on purpose: renaming it would wipe every doctor's saved chats once. */
+        const val DOCTOR = "partner_token_hash"
     }
 }
