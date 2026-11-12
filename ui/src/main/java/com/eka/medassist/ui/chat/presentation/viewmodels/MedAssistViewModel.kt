@@ -43,6 +43,7 @@ import com.eka.conversation.matrix.media.AudioPayload
 import kotlinx.coroutines.CancellationException
 import com.eka.medassist.ui.chat.common.Outbox
 import com.eka.medassist.ui.chat.common.SilenceDetector
+import com.eka.medassist.ui.chat.data.AuthIdentity
 import com.eka.medassist.ui.chat.data.ChatCache
 import com.eka.medassist.ui.chat.presentation.models.Delivery
 import com.eka.conversation.matrix.AgentConfig
@@ -155,7 +156,8 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
 
     init {
         // A different doctor (or a re-login) must not resume someone else's Matrix identity.
-        val tokenFingerprint = args.authToken?.hashCode()?.toString()
+        // Compared by the doctor inside the token, not the token: the Eka token rotates every ~30 min
+        val tokenFingerprint = AuthIdentity.of(args.authToken)
         if (prefs.lastAuthToken != tokenFingerprint) {
             prefs.clearUser()
             cache.clear()
@@ -419,6 +421,17 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         get() = prefs.sessionId(args.chatScope)
         set(value) = prefs.setSessionId(args.chatScope, value)
 
+    /** The live chat can be replaced by the client when the server drops it; keep our id, prefs and patient on it. */
+    private fun syncSessionId() {
+        val live = client.sessionId ?: return
+        val shown = _state.value.sessionId ?: return
+        if (live == shown) return
+        MedAssistLogger.d("MedAssist", "live chat replaced by the server: ${shown.take(8)} -> ${live.take(8)}")
+        storedSessionId = live
+        prefs.savePatient(live, _state.value.patient)
+        _state.update { it.copy(sessionId = live) }
+    }
+
     private fun clearStoredSession() = prefs.clearSession(args.chatScope)
 
     private fun onTokenExchange(t: TokenExchangeResponse) {
@@ -555,6 +568,7 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 flushOutbox()
             }
             MatrixEvent.Connected -> {
+                syncSessionId()
                 resetConnectionStates()
                 _state.update { it.copy(connection = ConnectionStatus.CONNECTED, offline = false) }
                 stoppingReply = false

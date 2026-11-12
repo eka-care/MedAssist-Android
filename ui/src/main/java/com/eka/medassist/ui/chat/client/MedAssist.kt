@@ -4,6 +4,7 @@ import android.content.Context
 import com.eka.conversation.matrix.MatrixClient
 import com.eka.conversation.matrix.MatrixClientConfig
 import com.eka.conversation.matrix.MatrixEnvironment
+import com.eka.medassist.ui.chat.data.AuthIdentity
 import com.eka.medassist.ui.chat.data.ChatCache
 import com.eka.medassist.ui.chat.data.MedAssistPrefs
 import com.eka.medassist.ui.chat.logger.MedAssistLogger
@@ -40,7 +41,7 @@ object MedAssistSDK {
         val prefs = MedAssistPrefs(app, agentId)
         val cache = ChatCache(app, agentId)
         // Same rule as the chat: another doctor's identity and chats must not carry over
-        val fingerprint = authToken?.hashCode()?.toString()
+        val fingerprint = AuthIdentity.of(authToken)
         if (prefs.lastAuthToken != fingerprint) {
             prefs.clearUser()
             cache.clear()
