@@ -158,10 +158,10 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         // A different doctor (or a re-login) must not resume someone else's Matrix identity.
         // Compared by the doctor inside the token, not the token: the Eka token rotates every ~30 min
         val tokenFingerprint = AuthIdentity.of(args.authToken)
-        if (prefs.lastAuthToken != tokenFingerprint) {
+        if (prefs.lastDoctorId != tokenFingerprint) {
             prefs.clearUser()
             cache.clear()
-            prefs.lastAuthToken = tokenFingerprint
+            prefs.lastDoctorId = tokenFingerprint
         }
         if (args.forceNewChat) clearStoredSession()
 
@@ -180,16 +180,21 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             onTokenExchange = ::onTokenExchange,
         )
 
+        // Last agent config on the phone (saved by prefetch / the last chat), read before the first
+        // frame: a small file, and reading it async let the shimmer flash for a frame or two.
+        val cached = runCatching { cache.loadAgentConfigBlocking() }.getOrNull()
+        if (cached != null) {
+            client.primeAgentConfig(cached)
+            applyAgentConfig(cached)
+        }
+
         viewModelScope.launch { client.events.collect(::onEvent) }
         viewModelScope.launch { client.errors.collect(::onError) }
-        track("chat_opened", "has_patient" to (args.patient != null))
+        track("chat_opened", "has_patient" to (args.patient != null), "cached_config" to (cached != null))
         viewModelScope.launch {
-            // Last agent config on the phone first: greeting and pills show at once, the session
-            // starts in parallel, and the fresh config replaces the cached one when it lands.
-            val cached = withContext(Dispatchers.IO) { cache.loadAgentConfigBlocking() }
+            // Greeting and pills are already on screen; the session starts now and the fresh
+            // config replaces the cached one when it lands.
             if (cached != null) {
-                client.primeAgentConfig(cached)
-                applyAgentConfig(cached)
                 startInitialSession()
                 client.fetchAgentConfig()?.let { fresh ->
                     applyAgentConfig(fresh)

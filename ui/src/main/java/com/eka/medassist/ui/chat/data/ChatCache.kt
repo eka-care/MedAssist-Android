@@ -71,9 +71,12 @@ internal class ChatCache(context: Context, agentId: String) {
         File(dir, CONFIG).writeText(json.encodeToString(AgentConfig.serializer(), cfg))
     }
 
-    /** A different doctor signed in: nothing of the previous one may show. */
+    /**
+     * A different doctor signed in: nothing of the previous one may show. The agent config is the
+     * agent's, not the doctor's, so it stays (the next chat opens without a shimmer).
+     */
     fun clear() {
-        dir.listFiles()?.forEach { it.delete() }
+        dir.listFiles()?.filter { it.name != CONFIG }?.forEach { it.delete() }
     }
 
     private fun sessionFile(sessionId: String) = File(dir, "chat_${sessionId.filter { it.isLetterOrDigit() || it == '-' }}.json")
