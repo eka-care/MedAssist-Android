@@ -136,7 +136,8 @@ fun MedAssistChat(
         }
     }
 
-    var showAttachSheet by remember { mutableStateOf(false) }
+    // Opened from the host's attach button: start with the + sheet up (once, not after rotation)
+    var showAttachSheet by rememberSaveable { mutableStateOf(args.openAttach) }
     // Newest records for the sheet's quick list; null while loading
     var recentRecords by remember { mutableStateOf<List<MedAssistRecord>?>(null) }
     LaunchedEffect(showAttachSheet, state.patient) {

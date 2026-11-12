@@ -95,6 +95,13 @@ data class MedAssistArgs(
      * touching the regular one.
      */
     val chatScope: String? = null,
+    /**
+     * A message the doctor already typed before opening (e.g. the home "Ask your agent" box).
+     * Sent as the first message, queued until the chat is live. Pass it on first open only.
+     */
+    val initialMessage: String? = null,
+    /** Open the + sheet (records, gallery, camera, files) as soon as the chat shows. */
+    val openAttach: Boolean = false,
 )
 
 /**
@@ -206,6 +213,11 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
                 cfg?.let { cache.saveAgentConfig(it) }
                 startInitialSession()
             }
+        }
+        // Typed on the host's screen before opening: shows at once, sends when the chat is live
+        args.initialMessage?.takeIf { it.isNotBlank() }?.let { text ->
+            track("initial_message")
+            queueMessage(SendOptions(message = text.trim()))
         }
     }
 
