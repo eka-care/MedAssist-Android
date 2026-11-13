@@ -440,12 +440,14 @@ private fun StarterPill(label: String, enabled: Boolean, onClick: () -> Unit) {
         text = label,
         style = touchCalloutRegular,
         color = DarwinTouchPrimaryDark,
+        // Alpha first, over the whole pill: when it was after the background, turning "enabled" on
+        // at Connected redrew only the text layer and a wrapped pill could lose its fill and border
         modifier = Modifier
+            .alpha(if (enabled) 1f else 0.6f)
             .clip(shape)
             .background(DarwinTouchPrimaryBgLight)
             .border(1.dp, Color(0xFFC7D5FB), shape)
             .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.6f)
             .padding(horizontal = 12.dp, vertical = 7.dp),
     )
 }
