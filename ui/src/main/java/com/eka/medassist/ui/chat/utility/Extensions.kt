@@ -41,6 +41,6 @@ fun Long.getDateHeader(): String {
     return when {
         isToday() -> "Today"
         isYesterday() -> "Yesterday"
-        else -> toLocalDateKey()
+        else -> SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(this))
     }
 }

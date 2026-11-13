@@ -8,87 +8,67 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalContext
-import com.eka.conversation.common.Response
-import com.eka.conversation.common.hasRecordAudioPermission
-import com.eka.medassist.ui.chat.presentation.models.ConversationInputState
-import com.eka.medassist.ui.chat.presentation.viewmodels.EkaChatViewModel
+import com.eka.conversation.matrix.media.MatrixFile
+import com.eka.medassist.ui.chat.presentation.models.VoiceStatus
 
+/** Chat input: text, attachments, mic and send; swaps to the recording bar while the doctor speaks. */
 @Composable
 fun ConversationInput(
-    viewModel: EkaChatViewModel,
+    text: String,
+    onTextChange: (String) -> Unit,
     sendEnabled: Boolean,
-    askMicrophonePermission : () -> Unit,
+    allowFiles: Boolean,
+    attachments: List<MatrixFile>,
+    onSend: () -> Unit,
+    onAttach: () -> Unit,
+    onRemoveAttachment: (MatrixFile) -> Unit,
+    readingLabel: String? = null,
+    voiceStatus: VoiceStatus = VoiceStatus.IDLE,
+    voiceStartedAt: Long = 0L,
+    /** null hides the mic. */
+    onMicrophoneClick: (() -> Unit)? = null,
+    onVoiceDone: () -> Unit = {},
+    onVoiceCancel: () -> Unit = {},
+    preparingAttachments: Boolean = false,
+    onStop: (() -> Unit)? = null,
+    voiceLevels: List<Float> = emptyList(),
 ) {
-    val state = viewModel.inputState.collectAsState().value
     val focusRequester = remember { FocusRequester() }
-    val context = LocalContext.current
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
     AnimatedContent(
-        targetState = state,
+        // Once sent, the clip is a message ("Voice message" bubble), so the input comes back
+        targetState = voiceStatus != VoiceStatus.LISTENING,
         transitionSpec = {
             val enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
             val exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             enter togetherWith exit using SizeTransform(clip = false)
-        }
-    ) {
-        when (it) {
-            is ConversationInputState.Default -> {
-                DefaultInputComponent(
-                    focusRequester = focusRequester,
-                    input = viewModel.textInputState.collectAsState().value,
-                    onSend = { query ->
-                        viewModel.askNewQuery(query = query)
-                    },
-                    onMicrophoneClick = {
-                        if(!viewModel.sendButtonEnabled) {
-                            viewModel.showToast("Mic Disabled!")
-                            return@DefaultInputComponent
-                        }
-                        if(hasRecordAudioPermission(context = context)) {
-                            viewModel.setInputState(ConversationInputState.Audio)
-                        } else {
-                            askMicrophonePermission()
-                        }
-                    },
-                    onCancel = {
-
-                    },
-                    sendEnabled = sendEnabled
-                )
-            }
-
-            is ConversationInputState.Audio -> {
-                AudioInputComponent(
-                    ekaChatViewModel = viewModel,
-                    onTranscriptionResult = { response ->
-                        when (response) {
-                            is Response.Loading -> {
-                            }
-
-                            is Response.Success -> {
-                                val transcribedText = response.data.toString()
-                                viewModel.updateTextInputState(transcribedText)
-                                viewModel.clearRecording()
-                            }
-
-                            is Response.Error -> {
-                                val errorMsg = response.message.toString()
-                                viewModel.showToast(errorMsg)
-                                viewModel.clearRecording()
-                            }
-                        }
-                        viewModel.setInputState(ConversationInputState.Default)
-                    },
-                )
-            }
+        },
+        label = "conversation-input"
+    ) { idle ->
+        if (idle) {
+            DefaultInputComponent(
+                focusRequester = focusRequester,
+                query = text,
+                onQueryChange = onTextChange,
+                onSend = onSend,
+                sendEnabled = sendEnabled,
+                onAttachClick = if (allowFiles) onAttach else null,
+                attachments = attachments,
+                onRemoveAttachment = onRemoveAttachment,
+                readingLabel = readingLabel,
+                onMicrophoneClick = onMicrophoneClick,
+                preparingAttachments = preparingAttachments,
+                onStop = onStop,
+            )
+        } else {
+            AudioInputComponent(
+                status = voiceStatus,
+                startedAt = voiceStartedAt,
+                levels = voiceLevels,
+                onDone = onVoiceDone,
+                onCancel = onVoiceCancel,
+            )
         }
     }
 }
