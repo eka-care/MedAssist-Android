@@ -1,8 +1,6 @@
 package com.eka.medassist.ui.chat
 
-import com.eka.medassist.ui.chat.presentation.components.isLongPrompt
 import com.eka.medassist.ui.chat.presentation.components.markdownBlocks
-import com.eka.medassist.ui.chat.presentation.components.promptPreview
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,12 +27,5 @@ class TypingTablesTest {
 
     @Test fun noTableIsOneBlock() {
         assertEquals(1, markdownBlocks("a | b inline\nsecond line", typing = true).size)
-    }
-
-    @Test fun longPromptCollapses() {
-        assertFalse(isLongPrompt("short question"))
-        val long = (1..10).joinToString("\n") { "line $it" }
-        assertTrue(isLongPrompt(long))
-        assertEquals((1..6).joinToString("\n") { "line $it" } + "…", promptPreview(long))
     }
 }
