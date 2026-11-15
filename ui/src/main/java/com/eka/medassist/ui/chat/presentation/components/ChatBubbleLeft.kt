@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -188,8 +189,12 @@ private fun ReplyMarkdown(text: String, typing: Boolean) {
                     )
                 } else {
                     MarkdownText(
+                        // A table-only view wraps to the table placeholder width and draws its rows
+                        // outside it, leaving a blank gap, so fill the bubble instead. Ellipsizing
+                        // blanks it out too: Android skips the spans that draw the rows.
+                        modifier = Modifier.fillMaxWidth(),
                         markdown = block.text,
-                        truncateOnTextOverflow = true,
+                        truncateOnTextOverflow = !block.isTable,
                         enableSoftBreakAddsNewLine = true,
                         style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
                     )
