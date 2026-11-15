@@ -1,5 +1,9 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.foundation.layout.Arrangement
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -49,6 +53,8 @@ fun ChatBubbleLeft(
     onFeedback: ((String) -> Unit)? = null,
     /** The doctor cut this reply short. */
     stopped: Boolean = false,
+    /** Still typing out: a table shows once its last row has arrived. */
+    typing: Boolean = false,
 ) {
     val iconAlpha = if (isFirstMessage) 1f else 0f
     val clipboard = LocalClipboardManager.current
@@ -90,12 +96,7 @@ fun ChatBubbleLeft(
                             )
                         }
                         if (message.isNotBlank()) {
-                            MarkdownText(
-                                markdown = message,
-                                truncateOnTextOverflow = true,
-                                enableSoftBreakAddsNewLine = true,
-                                style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
-                            )
+                            ReplyMarkdown(text = message, typing = typing)
                         }
                         if (stopped) {
                             Text(
@@ -167,3 +168,63 @@ fun ChatBubbleLeft(
         }
     }
 }
+
+/**
+ * A reply as text parts and tables, each in its own view. Markwon measures table rows after the
+ * text is set, so a table inside text that changes on every typed character drew overlapping
+ * rows. A finished table is its own view and is never re-set while the text after it types.
+ */
+@Composable
+private fun ReplyMarkdown(text: String, typing: Boolean) {
+    val blocks = remember(text, typing) { markdownBlocks(text, typing) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        blocks.forEachIndexed { i, block ->
+            key(i) {
+                if (block.preparingTable) {
+                    Text(
+                        text = "Preparing table…",
+                        style = touchBodyRegular.copy(fontStyle = FontStyle.Italic),
+                        color = DarwinTouchNeutral600,
+                    )
+                } else {
+                    MarkdownText(
+                        markdown = block.text,
+                        truncateOnTextOverflow = true,
+                        enableSoftBreakAddsNewLine = true,
+                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
+                    )
+                }
+            }
+        }
+    }
+}
+
+internal data class MarkdownBlock(val text: String, val isTable: Boolean, val preparingTable: Boolean = false)
+
+/**
+ * Splits markdown at table boundaries. While [typing], a table at the very end may still be
+ * growing, so it is marked [MarkdownBlock.preparingTable]; any table followed by another line is done.
+ */
+internal fun markdownBlocks(text: String, typing: Boolean): List<MarkdownBlock> {
+    val blocks = mutableListOf<MarkdownBlock>()
+    val current = mutableListOf<String>()
+    var currentIsTable = false
+    fun flush() {
+        if (current.isEmpty()) return
+        val joined = current.joinToString("\n")
+        if (currentIsTable || joined.isNotBlank()) blocks += MarkdownBlock(joined.trim('\n'), currentIsTable)
+        current.clear()
+    }
+    for (line in text.split('\n')) {
+        val isTableLine = line.trimStart().startsWith("|")
+        if (current.isNotEmpty() && isTableLine != currentIsTable) flush()
+        currentIsTable = isTableLine
+        current += line
+    }
+    flush()
+    if (typing && blocks.lastOrNull()?.isTable == true) {
+        blocks[blocks.lastIndex] = blocks.last().copy(preparingTable = true)
+    }
+    return blocks
+}
+
