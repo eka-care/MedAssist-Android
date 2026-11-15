@@ -1,5 +1,7 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import androidx.compose.ui.draw.rotate
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -109,11 +111,37 @@ fun ChatBubbleRight(
                             }
                         }
                         if (hasText) {
+                            // A long prompt starts collapsed, with Show more / Show less
+                            val long = remember(message.content) { isLongPrompt(message.content) }
+                            var expanded by rememberSaveable(message.id) { mutableStateOf(false) }
                             MarkdownText(
-                                markdown = message.content,
+                                markdown = if (long && !expanded) promptPreview(message.content) else message.content,
                                 style = touchBodyRegular,
                                 color = DarwinTouchNeutral800
                             )
+                            if (long) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(top = 4.dp)
+                                        .clickable { expanded = !expanded },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = if (expanded) "Show less" else "Show more",
+                                        style = touchBodyRegular,
+                                        color = DarwinTouchPrimary,
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_chevron_right_regular),
+                                        contentDescription = null,
+                                        tint = DarwinTouchPrimary,
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .rotate(if (expanded) -90f else 90f),
+                                    )
+                                }
+                            }
                         }
                     }
                 },
@@ -159,3 +187,20 @@ fun ChatBubbleRight(
         }
     }
 }
+
+private const val PROMPT_PREVIEW_LINES = 6
+private const val PROMPT_PREVIEW_CHARS = 320
+
+/** More than 6 lines or ~320 characters starts collapsed. */
+internal fun isLongPrompt(text: String): Boolean =
+    text.length > PROMPT_PREVIEW_CHARS || text.lines().size > PROMPT_PREVIEW_LINES
+
+/** First lines of a long prompt, cut at a word, with an ellipsis. */
+internal fun promptPreview(text: String): String {
+    val byLines = text.lines().take(PROMPT_PREVIEW_LINES).joinToString("\n")
+    if (byLines.length <= PROMPT_PREVIEW_CHARS) return byLines.trimEnd() + "…"
+    val cut = byLines.take(PROMPT_PREVIEW_CHARS)
+    val space = cut.lastIndexOf(' ')
+    return (if (space > PROMPT_PREVIEW_CHARS / 2) cut.take(space) else cut).trimEnd() + "…"
+}
+
