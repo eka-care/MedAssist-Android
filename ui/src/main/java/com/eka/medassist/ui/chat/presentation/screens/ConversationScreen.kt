@@ -2,6 +2,18 @@
 
 package com.eka.medassist.ui.chat.presentation.screens
 
+import kotlinx.coroutines.launch
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral200
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedVisibility
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -315,70 +327,103 @@ private fun ConversationContent(
         if (messages.isNotEmpty()) listState.animateScrollToItem(0)
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = listState,
-        contentPadding = PaddingValues(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.Start,
-        reverseLayout = true
-    ) {
-        if (isThinking) {
-            item(key = "thinking") {
-                ChatBubbleProcessing(
-                    progressMessage = state.progressMessage,
-                    tips = state.tips.ifEmpty { state.agentConfig?.theme?.tips.orEmpty() },
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            contentPadding = PaddingValues(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.Start,
+            reverseLayout = true
+        ) {
+            if (isThinking) {
+                item(key = "thinking") {
+                    ChatBubbleProcessing(
+                        progressMessage = state.progressMessage,
+                        tips = state.tips.ifEmpty { state.agentConfig?.theme?.tips.orEmpty() },
+                    )
+                }
+            }
+            items(count = messages.size, key = { r -> (messages.lastIndex - r).let { "${messages[it].id}-$it" } }) { r ->
+                val index = messages.lastIndex - r
+                val m = messages[index]
+                if (m.role == Role.USER) {
+                    ChatBubbleRight(
+                        message = m,
+                        onEdit = onEdit,
+                        onResend = viewModel::resend,
+                        onRetry = viewModel::retryMessage,
+                    )
+                    return@items
+                }
+                val isLast = index == messages.lastIndex
+                val progress = if (isLast && !isThinking) state.progressMessage else null
+                val shownText = rememberTypewriterText(
+                    key = "${m.id}-$index",
+                    text = m.content,
+                    streaming = isLast && state.isStreaming,
                 )
+                val hasBody = m.content.isNotBlank() || m.toolCallStatus != null || m.userHint != null || progress != null
+                Column {
+                    if (hasBody) {
+                        val typing = shownText.length < m.content.length || (isLast && state.isStreaming)
+                        ChatBubbleLeft(
+                            message = shownText,
+                            typing = typing,
+                            isFirstMessage = index == 0 || messages[index - 1].role != Role.ASSISTANT,
+                            showResponseButtons = index == lastAssistantIndex && !state.isStreaming &&
+                                m.id != MedAssistViewModel.INITIAL_BOT_MESSAGE_ID,
+                            statusText = m.toolCallStatus ?: progress,
+                            userHint = m.userHint,
+                            feedback = m.feedback,
+                            stopped = m.stopped,
+                            onFeedback = { fb -> viewModel.sendMessageFeedback(m.id, fb) },
+                        )
+                    }
+                    m.toolKeys.forEach { key ->
+                        val entry = state.elicitations[key] ?: return@forEach
+                        if (entry.component in MatrixComponents.AUTH) return@forEach
+                        ElicitationRenderer(
+                            messageId = m.id,
+                            toolKey = key,
+                            entry = entry,
+                            // Option taps go straight to the agent, so they need a live connection
+                            disabled = entry.disabled || !state.canSendLive && entry.component != MatrixComponents.DOCTOR_CARD,
+                            onSend = viewModel::sendMessage,
+                        )
+                    }
+                }
             }
         }
-        items(count = messages.size, key = { r -> (messages.lastIndex - r).let { "${messages[it].id}-$it" } }) { r ->
-            val index = messages.lastIndex - r
-            val m = messages[index]
-            if (m.role == Role.USER) {
-                ChatBubbleRight(
-                    message = m,
-                    onEdit = onEdit,
-                    onResend = viewModel::resend,
-                    onRetry = viewModel::retryMessage,
+        // ChatGPT-style jump to the latest message, shown once the doctor has scrolled up
+        val showJump by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        val scope = rememberCoroutineScope()
+        AnimatedVisibility(
+            visible = showJump,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .shadow(4.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(1.dp, DarwinTouchNeutral200, CircleShape)
+                    .clickable { scope.launch { listState.animateScrollToItem(0) } },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right_regular),
+                    contentDescription = "Scroll to latest",
+                    tint = DarwinTouchNeutral800,
+                    modifier = Modifier
+                        .size(14.dp)
+                        .rotate(90f),
                 )
-                return@items
-            }
-            val isLast = index == messages.lastIndex
-            val progress = if (isLast && !isThinking) state.progressMessage else null
-            val shownText = rememberTypewriterText(
-                key = "${m.id}-$index",
-                text = m.content,
-                streaming = isLast && state.isStreaming,
-            )
-            val hasBody = m.content.isNotBlank() || m.toolCallStatus != null || m.userHint != null || progress != null
-            Column {
-                if (hasBody) {
-                    val typing = shownText.length < m.content.length || (isLast && state.isStreaming)
-                    ChatBubbleLeft(
-                        message = shownText,
-                        typing = typing,
-                        isFirstMessage = index == 0 || messages[index - 1].role != Role.ASSISTANT,
-                        showResponseButtons = index == lastAssistantIndex && !state.isStreaming &&
-                            m.id != MedAssistViewModel.INITIAL_BOT_MESSAGE_ID,
-                        statusText = m.toolCallStatus ?: progress,
-                        userHint = m.userHint,
-                        feedback = m.feedback,
-                        stopped = m.stopped,
-                        onFeedback = { fb -> viewModel.sendMessageFeedback(m.id, fb) },
-                    )
-                }
-                m.toolKeys.forEach { key ->
-                    val entry = state.elicitations[key] ?: return@forEach
-                    if (entry.component in MatrixComponents.AUTH) return@forEach
-                    ElicitationRenderer(
-                        messageId = m.id,
-                        toolKey = key,
-                        entry = entry,
-                        // Option taps go straight to the agent, so they need a live connection
-                        disabled = entry.disabled || !state.canSendLive && entry.component != MatrixComponents.DOCTOR_CARD,
-                        onSend = viewModel::sendMessage,
-                    )
-                }
             }
         }
     }
