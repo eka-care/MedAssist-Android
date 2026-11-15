@@ -353,8 +353,11 @@ private fun ConversationContent(
             val hasBody = m.content.isNotBlank() || m.toolCallStatus != null || m.userHint != null || progress != null
             Column {
                 if (hasBody) {
+                    // Markwon measures table rows after the text is set, so a table re-set on every
+                    // typed character draws overlapping rows; tables appear once the reply is complete
+                    val typing = shownText.length < m.content.length || (isLast && state.isStreaming)
                     ChatBubbleLeft(
-                        message = shownText,
+                        message = if (typing) hideTablesWhileTyping(shownText) else shownText,
                         isFirstMessage = index == 0 || messages[index - 1].role != Role.ASSISTANT,
                         showResponseButtons = index == lastAssistantIndex && !state.isStreaming &&
                             m.id != MedAssistViewModel.INITIAL_BOT_MESSAGE_ID,
@@ -470,3 +473,21 @@ fun getConnectionState(state: MedAssistUiState): String = when {
 }
 
 private class PatientChange(val patient: MedAssistPatient?)
+
+/** While a reply types out, each markdown table becomes one "Preparing table…" line. */
+internal fun hideTablesWhileTyping(text: String): String {
+    if (!text.contains('|')) return text
+    val out = StringBuilder()
+    var inTable = false
+    for (line in text.split('\n')) {
+        val isTableLine = line.trimStart().startsWith("|")
+        if (isTableLine) {
+            if (!inTable) out.append("_Preparing table…_\n")
+            inTable = true
+        } else {
+            inTable = false
+            out.append(line).append('\n')
+        }
+    }
+    return out.toString().trimEnd('\n')
+}
