@@ -1,5 +1,6 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import com.eka.medassist.ui.chat.client.MedAssistToolSource
 import android.app.Application
 import android.content.ActivityNotFoundException
 import android.net.Uri
@@ -53,13 +54,15 @@ fun MedAssistChat(
      * and "See all" for the host's full records screen. null hides records in +.
      */
     records: MedAssistRecordsSource? = null,
+    /** Functions the agent can call during a reply (e.g. get_patient_context). null: none. */
+    tools: MedAssistToolSource? = null,
     /** Analytics sink: ("medassist_<event>", params) - opened, sent, first token, stop, errors, voice, attachments... */
     onAnalyticsEvent: ((name: String, params: Map<String, Any?>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val viewModel: MedAssistViewModel = viewModel(
         key = "medassist-${args.agentId}",
-        factory = MedAssistViewModel.Factory(context.applicationContext as Application, args),
+        factory = MedAssistViewModel.Factory(context.applicationContext as Application, args, tools),
     )
     val state by viewModel.state.collectAsState()
     SideEffect { viewModel.analytics = onAnalyticsEvent }

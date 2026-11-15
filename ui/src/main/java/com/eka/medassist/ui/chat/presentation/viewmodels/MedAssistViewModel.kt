@@ -1,5 +1,7 @@
 package com.eka.medassist.ui.chat.presentation.viewmodels
 
+import com.eka.medassist.ui.chat.client.MedAssistToolSource
+import com.eka.conversation.matrix.ClientToolHandler
 import android.app.Application
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -108,7 +110,11 @@ data class MedAssistArgs(
  * Native port of the MedAssist widget's `useChat` hook + `useChatWidget` state:
  * message aggregation, elicitation state machine and routing, retries, history, feedback, recording.
  */
-class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : AndroidViewModel(app) {
+class MedAssistViewModel(
+    app: Application,
+    private val args: MedAssistArgs,
+    private val toolSource: MedAssistToolSource? = null,
+) : AndroidViewModel(app) {
 
     private val prefs = MedAssistPrefs(app, args.agentId)
     private val _state = MutableStateFlow(MedAssistUiState(title = args.title, patient = args.patient, doctor = args.doctor, readingLabel = args.readingLabel))
@@ -186,6 +192,16 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
             seeded = prefs.credentials(),
             onTokenExchange = ::onTokenExchange,
         )
+        // Host tools the agent can call (get_patient_context...), always with the chat's current patient
+        toolSource?.let { source ->
+            client.setClientTools(object : ClientToolHandler {
+                override val tools = source.tools
+                override suspend fun call(name: String, arguments: JsonObject): JsonObject {
+                    track("client_tool", "name" to name)
+                    return source.call(name, arguments, _state.value.patient)
+                }
+            })
+        }
 
         // Last agent config on the phone (saved by prefetch / the last chat), read before the first
         // frame: a small file, and reading it async let the shimmer flash for a frame or two.
@@ -1382,9 +1398,13 @@ class MedAssistViewModel(app: Application, private val args: MedAssistArgs) : An
         super.onCleared()
     }
 
-    class Factory(private val app: Application, private val args: MedAssistArgs) : ViewModelProvider.Factory {
+    class Factory(
+        private val app: Application,
+        private val args: MedAssistArgs,
+        private val tools: MedAssistToolSource? = null,
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T = MedAssistViewModel(app, args) as T
+        override fun <T : ViewModel> create(modelClass: Class<T>): T = MedAssistViewModel(app, args, tools) as T
     }
 
     companion object {
