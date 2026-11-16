@@ -1,35 +1,75 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.foundation.layout.Arrangement
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
+import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
+import com.eka.medassist.ui.chat.presentation.models.Feedback
 import com.eka.medassist.ui.chat.presentation.states.ActionType
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral1000
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral600
+import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral800
 import com.eka.medassist.ui.chat.theme.touchBodyRegular
+import com.eka.medassist.ui.chat.theme.touchCaption1Regular
+import com.eka.medassist.ui.chat.theme.touchFootnoteRegular
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
+/**
+ * Bot reply: AI avatar + markdown.
+ * [statusText] is a tool / progress line above the text, [userHint] a footnote below it.
+ * Response buttons (like / dislike / share / copy) show on the latest reply only.
+ */
 @Composable
 fun ChatBubbleLeft(
     message: String,
-    onClick: (CTA) -> Unit,
+    onClick: (CTA) -> Unit = {},
     showResponseButtons: Boolean = true,
-    isFirstMessage: Boolean = false
+    isFirstMessage: Boolean = false,
+    statusText: String? = null,
+    userHint: String? = null,
+    feedback: String = Feedback.NONE,
+    onFeedback: ((String) -> Unit)? = null,
+    /** The doctor cut this reply short. */
+    stopped: Boolean = false,
+    /** Still typing out: a table shows once its last row has arrived. */
+    typing: Boolean = false,
 ) {
-    val iconAlpha = if (isFirstMessage) 1f else 0f
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     Column {
+        // Above the reply, not beside it: the text keeps the left margin either way.
+        if (isFirstMessage) {
+            Icon(
+                modifier = Modifier
+                    .padding(bottom = 4.dp)
+                    .size(28.dp),
+                painter = painterResource(id = R.drawable.ic_ai_chat_custom),
+                tint = Color.Unspecified,
+                contentDescription = ""
+            )
+        }
         Row(
             modifier = Modifier
                 .padding(top = 4.dp)
@@ -37,15 +77,6 @@ fun ChatBubbleLeft(
                     onClick(CTA(action = ActionType.ON_CHAT_MESSAGE_CLICKED.stringValue))
                 }
         ) {
-            Icon(
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .alpha(iconAlpha)
-                    .size(32.dp),
-                painter = painterResource(id = R.drawable.ic_ai_chat_custom),
-                tint = Color.Unspecified,
-                contentDescription = ""
-            )
             BorderCard(
                 modifier = Modifier.weight(1f),
                 border = BorderStroke(width = 0.dp, color = Color.Transparent),
@@ -56,56 +87,149 @@ fun ChatBubbleLeft(
                     bottomEnd = 16.dp
                 ),
                 content = {
-                    MarkdownText(
-                        modifier = Modifier
-                            .padding(start = 0.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                        markdown = message,
-                        truncateOnTextOverflow = true,
-                        enableSoftBreakAddsNewLine = true,
-                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
-                    )
+                    Column(modifier = Modifier.padding(end = 16.dp, bottom = if (showResponseButtons) 4.dp else 16.dp)) {
+                        statusText?.let {
+                            Text(
+                                text = it,
+                                style = touchCaption1Regular,
+                                color = DarwinTouchNeutral600,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                        if (message.isNotBlank()) {
+                            ReplyMarkdown(text = message, typing = typing)
+                        }
+                        if (stopped) {
+                            Text(
+                                text = "You stopped this reply",
+                                style = touchCaption1Regular,
+                                color = DarwinTouchNeutral600,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
                 },
                 background = Color.Transparent
             )
         }
-//        if (message.message.msgType == com.eka.conversation.data.local.db.entities.models.MessageType.TEXT && showResponseButtons) {
-//            Row(
-//                modifier = Modifier
-//                    .padding(start = 24.dp, top = 4.dp)
-//            ) {
-//                IconButtonWrapper(
-//                    onClick = {
-//                        onClick(CTA(action = ActionType.ON_POSITIVE_REVIEW_CLICKED.stringValue))
-//                    },
-//                    icon = R.drawable.ic_thumbs_up_regular,
-//                    contentDescription = "Thumbs up",
-//                    iconSize = 20.dp
-//                )
-//                IconButtonWrapper(
-//                    onClick = {
-//                        onClick(CTA(action = ActionType.ON_NEGETIVE_REVIEW_CLICKED.stringValue))
-//                    },
-//                    icon = R.drawable.ic_thumbs_down_regular,
-//                    contentDescription = "Thumbs down",
-//                    iconSize = 20.dp
-//                )
-//                IconButtonWrapper(
-//                    onClick = {
-//                        onClick(CTA(action = ActionType.ON_SHARE_CLICKED.stringValue))
-//                    },
-//                    icon = R.drawable.ic_share_nodes_regular,
-//                    contentDescription = "Share",
-//                    iconSize = 20.dp
-//                )
-//                IconButtonWrapper(
-//                    onClick = {
-//                        onClick(CTA(action = ActionType.ON_COPY_CLICKED.stringValue))
-//                    },
-//                    icon = R.drawable.ic_copy_regular,
-//                    contentDescription = "Copy",
-//                    iconSize = 20.dp
-//                )
-//            }
-//        }
+        if (showResponseButtons && message.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .padding(start = 0.dp)
+            ) {
+                if (onFeedback != null && (feedback == Feedback.NONE || feedback == Feedback.LIKE)) {
+                    IconButtonWrapper(
+                        enabled = feedback == Feedback.NONE,
+                        onClick = {
+                            onClick(CTA(action = ActionType.ON_POSITIVE_REVIEW_CLICKED.stringValue))
+                            onFeedback(Feedback.LIKE)
+                        },
+                        icon = R.drawable.ic_thumbs_up_regular,
+                        contentDescription = "Thumbs up",
+                        iconSize = 16.dp
+                    )
+                }
+                if (onFeedback != null && (feedback == Feedback.NONE || feedback == Feedback.DISLIKE)) {
+                    IconButtonWrapper(
+                        enabled = feedback == Feedback.NONE,
+                        onClick = {
+                            onClick(CTA(action = ActionType.ON_NEGETIVE_REVIEW_CLICKED.stringValue))
+                            onFeedback(Feedback.DISLIKE)
+                        },
+                        icon = R.drawable.ic_thumbs_down_regular,
+                        contentDescription = "Thumbs down",
+                        iconSize = 16.dp
+                    )
+                }
+                IconButtonWrapper(
+                    onClick = {
+                        onClick(CTA(action = ActionType.ON_SHARE_CLICKED.stringValue))
+                        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, message)
+                        context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    },
+                    icon = R.drawable.ic_share_nodes_regular,
+                    contentDescription = "Share",
+                    iconSize = 16.dp
+                )
+                IconButtonWrapper(
+                    onClick = {
+                        onClick(CTA(action = ActionType.ON_COPY_CLICKED.stringValue))
+                        clipboard.setText(AnnotatedString(message))
+                    },
+                    icon = R.drawable.ic_copy_regular,
+                    contentDescription = "Copy",
+                    iconSize = 16.dp
+                )
+            }
+        }
+        userHint?.let { hint ->
+            Row(modifier = Modifier.padding(top = 6.dp, end = 16.dp)) {
+                MarkdownText(markdown = hint, style = touchFootnoteRegular.copy(color = DarwinTouchNeutral800))
+            }
+        }
     }
 }
+
+/**
+ * A reply as text parts and tables, each in its own view. Markwon measures table rows after the
+ * text is set, so a table inside text that changes on every typed character drew overlapping
+ * rows. A finished table is its own view and is never re-set while the text after it types.
+ */
+@Composable
+private fun ReplyMarkdown(text: String, typing: Boolean) {
+    val blocks = remember(text, typing) { markdownBlocks(text, typing) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        blocks.forEachIndexed { i, block ->
+            key(i) {
+                if (block.preparingTable) {
+                    Text(
+                        text = "Preparing table…",
+                        style = touchBodyRegular.copy(fontStyle = FontStyle.Italic),
+                        color = DarwinTouchNeutral600,
+                    )
+                } else {
+                    MarkdownText(
+                        // A table-only view wraps to the table placeholder width and draws its rows
+                        // outside it, leaving a blank gap, so fill the bubble instead. Ellipsizing
+                        // blanks it out too: Android skips the spans that draw the rows.
+                        modifier = Modifier.fillMaxWidth(),
+                        markdown = block.text,
+                        truncateOnTextOverflow = !block.isTable,
+                        enableSoftBreakAddsNewLine = true,
+                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
+                    )
+                }
+            }
+        }
+    }
+}
+
+internal data class MarkdownBlock(val text: String, val isTable: Boolean, val preparingTable: Boolean = false)
+
+/**
+ * Splits markdown at table boundaries. While [typing], a table at the very end may still be
+ * growing, so it is marked [MarkdownBlock.preparingTable]; any table followed by another line is done.
+ */
+internal fun markdownBlocks(text: String, typing: Boolean): List<MarkdownBlock> {
+    val blocks = mutableListOf<MarkdownBlock>()
+    val current = mutableListOf<String>()
+    var currentIsTable = false
+    fun flush() {
+        if (current.isEmpty()) return
+        val joined = current.joinToString("\n")
+        if (currentIsTable || joined.isNotBlank()) blocks += MarkdownBlock(joined.trim('\n'), currentIsTable)
+        current.clear()
+    }
+    for (line in text.split('\n')) {
+        val isTableLine = line.trimStart().startsWith("|")
+        if (current.isNotEmpty() && isTableLine != currentIsTable) flush()
+        currentIsTable = isTableLine
+        current += line
+    }
+    flush()
+    if (typing && blocks.lastOrNull()?.isTable == true) {
+        blocks[blocks.lastIndex] = blocks.last().copy(preparingTable = true)
+    }
+    return blocks
+}
+
