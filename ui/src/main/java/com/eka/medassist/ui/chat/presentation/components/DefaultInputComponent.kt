@@ -59,8 +59,6 @@ fun DefaultInputComponent(
     onAttachClick: (() -> Unit)? = null,
     attachments: List<MatrixFile> = emptyList(),
     onRemoveAttachment: (MatrixFile) -> Unit = {},
-    /** Kept for callers; the strip itself is no longer drawn. */
-    @Suppress("UNUSED_PARAMETER") readingLabel: String? = null,
     /** Starts dictation; null hides the mic. */
     onMicrophoneClick: (() -> Unit)? = null,
     /** Picked files are being read / resized: spinner in place of +. */

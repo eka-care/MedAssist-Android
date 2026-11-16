@@ -80,7 +80,6 @@ data class MedAssistArgs(
     /** Signed-in doctor, greeted on the empty chat. */
     val doctor: MedAssistDoctor? = null,
     /** Document the chat is reading (e.g. a scribe note), shown above the input. */
-    val readingLabel: String? = null,
     /** Start a fresh chat instead of resuming the stored session. */
     val forceNewChat: Boolean = false,
     /** Open this past session instead of the stored one. */
@@ -117,7 +116,7 @@ class MedAssistViewModel(
 ) : AndroidViewModel(app) {
 
     private val prefs = MedAssistPrefs(app, args.agentId)
-    private val _state = MutableStateFlow(MedAssistUiState(title = args.title, patient = args.patient, doctor = args.doctor, readingLabel = args.readingLabel))
+    private val _state = MutableStateFlow(MedAssistUiState(title = args.title, patient = args.patient, doctor = args.doctor))
     val state: StateFlow<MedAssistUiState> = _state.asStateFlow()
     private val _toasts = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toasts: SharedFlow<String> = _toasts.asSharedFlow()

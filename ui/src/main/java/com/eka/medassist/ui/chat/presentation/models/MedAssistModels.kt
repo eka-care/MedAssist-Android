@@ -95,7 +95,6 @@ data class MedAssistUiState(
     val offline: Boolean = false,
     val patient: com.eka.medassist.ui.chat.client.MedAssistPatient? = null,
     val doctor: com.eka.medassist.ui.chat.client.MedAssistDoctor? = null,
-    val readingLabel: String? = null,
     val voiceStatus: VoiceStatus = VoiceStatus.IDLE,
     val voiceStartedAt: Long = 0L,
     /** Recent mic levels 0..1 (oldest first) for the live waveform. */

@@ -24,7 +24,6 @@ fun ConversationInput(
     onSend: () -> Unit,
     onAttach: () -> Unit,
     onRemoveAttachment: (MatrixFile) -> Unit,
-    readingLabel: String? = null,
     voiceStatus: VoiceStatus = VoiceStatus.IDLE,
     voiceStartedAt: Long = 0L,
     /** null hides the mic. */
@@ -56,7 +55,6 @@ fun ConversationInput(
                 onAttachClick = if (allowFiles) onAttach else null,
                 attachments = attachments,
                 onRemoveAttachment = onRemoveAttachment,
-                readingLabel = readingLabel,
                 onMicrophoneClick = onMicrophoneClick,
                 preparingAttachments = preparingAttachments,
                 onStop = onStop,

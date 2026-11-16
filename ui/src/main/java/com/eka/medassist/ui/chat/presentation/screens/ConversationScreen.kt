@@ -256,7 +256,6 @@ fun ConversationScreen(
                 },
                 onAttach = onPickFiles,
                 onRemoveAttachment = viewModel::removeAttachment,
-                readingLabel = state.readingLabel,
                 voiceStatus = state.voiceStatus,
                 voiceStartedAt = state.voiceStartedAt,
                 // Voice messages, like the web widget: shown when the agent allows audio

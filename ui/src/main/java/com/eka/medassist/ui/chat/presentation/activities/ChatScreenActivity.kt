@@ -50,7 +50,6 @@ class ChatScreenActivity : ComponentActivity() {
             doctor = intent.getStringExtra(ActivityParams.DOCTOR_FIRST_NAME)?.let {
                 MedAssistDoctor(firstName = it, salutation = intent.getStringExtra(ActivityParams.DOCTOR_SALUTATION))
             },
-            readingLabel = intent.getStringExtra(ActivityParams.READING_LABEL),
         )
         setContent {
             MedAssistChat(args = args, onClose = { finish() })
@@ -78,7 +77,6 @@ class ChatScreenActivity : ComponentActivity() {
                     putExtra(ActivityParams.DOCTOR_FIRST_NAME, it.firstName)
                     putExtra(ActivityParams.DOCTOR_SALUTATION, it.salutation)
                 }
-                putExtra(ActivityParams.READING_LABEL, args.readingLabel)
             }
     }
 }
