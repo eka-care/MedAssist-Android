@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -57,10 +56,20 @@ fun ChatBubbleLeft(
     /** Still typing out: a table shows once its last row has arrived. */
     typing: Boolean = false,
 ) {
-    val iconAlpha = if (isFirstMessage) 1f else 0f
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     Column {
+        // Above the reply, not beside it: the text keeps the left margin either way.
+        if (isFirstMessage) {
+            Icon(
+                modifier = Modifier
+                    .padding(bottom = 4.dp)
+                    .size(28.dp),
+                painter = painterResource(id = R.drawable.ic_ai_chat_custom),
+                tint = Color.Unspecified,
+                contentDescription = ""
+            )
+        }
         Row(
             modifier = Modifier
                 .padding(top = 4.dp)
@@ -68,15 +77,6 @@ fun ChatBubbleLeft(
                     onClick(CTA(action = ActionType.ON_CHAT_MESSAGE_CLICKED.stringValue))
                 }
         ) {
-            Icon(
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .alpha(iconAlpha)
-                    .size(32.dp),
-                painter = painterResource(id = R.drawable.ic_ai_chat_custom),
-                tint = Color.Unspecified,
-                contentDescription = ""
-            )
             BorderCard(
                 modifier = Modifier.weight(1f),
                 border = BorderStroke(width = 0.dp, color = Color.Transparent),
@@ -115,7 +115,7 @@ fun ChatBubbleLeft(
         if (showResponseButtons && message.isNotBlank()) {
             Row(
                 modifier = Modifier
-                    .padding(start = 32.dp)
+                    .padding(start = 0.dp)
             ) {
                 if (onFeedback != null && (feedback == Feedback.NONE || feedback == Feedback.LIKE)) {
                     IconButtonWrapper(
@@ -126,7 +126,7 @@ fun ChatBubbleLeft(
                         },
                         icon = R.drawable.ic_thumbs_up_regular,
                         contentDescription = "Thumbs up",
-                        iconSize = 20.dp
+                        iconSize = 16.dp
                     )
                 }
                 if (onFeedback != null && (feedback == Feedback.NONE || feedback == Feedback.DISLIKE)) {
@@ -138,7 +138,7 @@ fun ChatBubbleLeft(
                         },
                         icon = R.drawable.ic_thumbs_down_regular,
                         contentDescription = "Thumbs down",
-                        iconSize = 20.dp
+                        iconSize = 16.dp
                     )
                 }
                 IconButtonWrapper(
@@ -149,7 +149,7 @@ fun ChatBubbleLeft(
                     },
                     icon = R.drawable.ic_share_nodes_regular,
                     contentDescription = "Share",
-                    iconSize = 20.dp
+                    iconSize = 16.dp
                 )
                 IconButtonWrapper(
                     onClick = {
@@ -158,12 +158,12 @@ fun ChatBubbleLeft(
                     },
                     icon = R.drawable.ic_copy_regular,
                     contentDescription = "Copy",
-                    iconSize = 20.dp
+                    iconSize = 16.dp
                 )
             }
         }
         userHint?.let { hint ->
-            Row(modifier = Modifier.padding(start = 40.dp, top = 6.dp, end = 16.dp)) {
+            Row(modifier = Modifier.padding(top = 6.dp, end = 16.dp)) {
                 MarkdownText(markdown = hint, style = touchFootnoteRegular.copy(color = DarwinTouchNeutral800))
             }
         }

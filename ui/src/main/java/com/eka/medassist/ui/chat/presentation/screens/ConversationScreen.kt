@@ -180,14 +180,6 @@ fun ConversationScreen(
             } else null,
         )
 
-        if (onPickPatient != null) {
-            PatientChipRow(
-                patient = state.patient,
-                enabled = !state.isStreaming && !state.isWaitingForResponse,
-                onPick = { onPickPatient { changePatient(it) } },
-                onRemove = { changePatient(null) },
-            )
-        }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -226,6 +218,16 @@ fun ConversationScreen(
                 onRetry = {},
                 actionLabel = "Start new chat",
                 onAction = startNewChat,
+            )
+        }
+
+        // The attached patient sits with the composer, as context for what you are about to ask.
+        if (onPickPatient != null) {
+            PatientChipRow(
+                patient = state.patient,
+                enabled = !state.isStreaming && !state.isWaitingForResponse,
+                onPick = { onPickPatient { changePatient(it) } },
+                onRemove = { changePatient(null) },
             )
         }
 

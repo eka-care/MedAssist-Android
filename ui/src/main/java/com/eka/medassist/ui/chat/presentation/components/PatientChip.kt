@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.client.MedAssistPatient
+import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonType
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
 import com.eka.medassist.ui.chat.theme.DarwinTouchNeutral0
 import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
@@ -45,7 +46,7 @@ fun PatientChipRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (patient == null) {
@@ -73,7 +74,7 @@ fun PatientChipRow(
                 .clip(RoundedCornerShape(12.dp))
                 .background(DarwinTouchPrimaryBgLight)
                 .clickable(enabled = enabled, onClick = onPick)
-                .padding(start = 6.dp, top = 4.dp, bottom = 4.dp),
+                .padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -92,14 +93,16 @@ fun PatientChipRow(
                 color = DarwinTouchPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier.weight(1f, fill = false).padding(end = 2.dp),
             )
+            Spacer(Modifier.width(8.dp))
+            // A size on the wrapper also sizes the glyph, so the cross drew at 32dp. Size the icon.
             IconButtonWrapper(
-                modifier = Modifier.size(32.dp),
+                type = IconButtonType.CUSTOM,
                 enabled = enabled,
                 onClick = onRemove,
                 icon = R.drawable.ic_xmark_regular,
-                iconSize = 10.dp,
+                iconSize = 12.dp,
                 contentDescription = "Remove patient",
             )
         }

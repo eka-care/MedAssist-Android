@@ -59,8 +59,8 @@ fun DefaultInputComponent(
     onAttachClick: (() -> Unit)? = null,
     attachments: List<MatrixFile> = emptyList(),
     onRemoveAttachment: (MatrixFile) -> Unit = {},
-    /** "Currently reading <label>" tab above the field. */
-    readingLabel: String? = null,
+    /** Kept for callers; the strip itself is no longer drawn. */
+    @Suppress("UNUSED_PARAMETER") readingLabel: String? = null,
     /** Starts dictation; null hides the mic. */
     onMicrophoneClick: (() -> Unit)? = null,
     /** Picked files are being read / resized: spinner in place of +. */
@@ -73,7 +73,7 @@ fun DefaultInputComponent(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(16.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
     ) {
         if (attachments.isNotEmpty()) {
             Row(
@@ -84,10 +84,6 @@ fun DefaultInputComponent(
             ) {
                 attachments.forEach { file -> FileChip(file) { onRemoveAttachment(file) } }
             }
-        }
-        readingLabel?.let {
-            // Drawn first, so the field covers its bottom edge
-            ReadingStrip(label = it, modifier = Modifier.offset(y = 10.dp))
         }
         TextField(
             modifier = Modifier
