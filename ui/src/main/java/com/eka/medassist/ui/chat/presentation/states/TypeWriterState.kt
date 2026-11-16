@@ -19,7 +19,9 @@ fun rememberTypewriterText(
     key: String,
     text: String,
     streaming: Boolean,
-    frameMs: Long = 16L,
+    // Every tick re-parses the growing block through Markwon, and the reveal speed comes from
+    // how far behind the text is, not from the frame rate, so 30fps looks the same for half the work.
+    frameMs: Long = 33L,
 ): String {
     var shown by remember(key) { mutableStateOf("") }
     var done by remember(key) { mutableStateOf(!streaming) }

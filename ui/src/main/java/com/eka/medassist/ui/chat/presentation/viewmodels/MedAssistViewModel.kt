@@ -126,6 +126,14 @@ class MedAssistViewModel(
     private var retryAttempts = 0
     private var hadStreamBreak = false
     private var streamIdleJob: Job? = null
+
+    // Tokens arrive far faster than frames. Collecting them here and publishing on a ticker
+    // rebuilds the reply string and the message list ~30x a second instead of once per token,
+    // which otherwise copies the whole reply (and the whole conversation) on every token.
+    private val pendingChunks = StringBuilder()
+    private var pendingChunkId: String? = null
+    private var pendingNewSegment = false
+    private var chunkFlushJob: Job? = null
     private var responseTimeoutJob: Job? = null
     private var fileUploadsThisSession = 0
     private var initialPrompts: List<Pair<String, String>> = emptyList()
@@ -314,6 +322,7 @@ class MedAssistViewModel(
                 lastSent = null
                 stoppingReply = false
                 client.endSession()
+                discardPendingChunks()
                 _state.update { it.copy(messages = emptyList(), elicitations = emptyMap()) }
                 fileUploadsThisSession = 0
                 if (target != null) {
@@ -472,6 +481,7 @@ class MedAssistViewModel(
         if (isNewLogin || t.userIdChangeDetected == true) {
             prefs.clearAllSessions()
             cache.clear()
+            discardPendingChunks()
             _state.update { it.copy(messages = emptyList(), elicitations = emptyMap(), sessionId = null) }
         }
         prefs.saveTokens(t)
@@ -589,6 +599,8 @@ class MedAssistViewModel(
         when (event) {
             is MatrixEvent.MessageChunk -> onChunk(event)
             MatrixEvent.EndOfStream -> {
+                flushChunks()
+                pendingChunkId = null
                 streamIdleJob?.cancel()
                 hadStreamBreak = false
                 _state.update { it.copy(isStreaming = false, progressMessage = null) }
@@ -665,19 +677,50 @@ class MedAssistViewModel(
         if (_state.value.connection != ConnectionStatus.CONNECTED && client.isConnected()) {
             _state.update { it.copy(connection = ConnectionStatus.CONNECTED) }
         }
-        val newSegment = hadStreamBreak
+        if (hadStreamBreak) pendingNewSegment = true
         hadStreamBreak = false
-        _state.update { s ->
-            val last = s.messages.lastOrNull()
-            if (last != null && last.id == e.messageId && last.role == Role.ASSISTANT) {
-                val sep = if (newSegment && last.content.isNotEmpty() && !last.content.last().isWhitespace() &&
-                    !e.text.first().isWhitespace()
-                ) "\n\n" else ""
-                s.copy(messages = s.messages.dropLast(1) + last.copy(content = last.content + sep + e.text))
-            } else {
-                s.copy(messages = s.messages + ChatUiMessage(id = e.messageId, content = e.text, role = Role.ASSISTANT))
+        // A chunk for a different message means the previous one is finished: publish it first.
+        if (pendingChunkId != null && pendingChunkId != e.messageId) flushChunks()
+        pendingChunkId = e.messageId
+        pendingChunks.append(e.text)
+        if (chunkFlushJob?.isActive != true) {
+            chunkFlushJob = viewModelScope.launch {
+                delay(CHUNK_FLUSH_MS)
+                flushChunks()
             }
         }
+    }
+
+    /** Publish whatever has arrived since the last flush. Safe to call when nothing is pending. */
+    private fun flushChunks() {
+        chunkFlushJob?.cancel()
+        chunkFlushJob = null
+        val id = pendingChunkId ?: return
+        if (pendingChunks.isEmpty()) return
+        val text = pendingChunks.toString()
+        pendingChunks.setLength(0)
+        val newSegment = pendingNewSegment
+        pendingNewSegment = false
+        _state.update { s ->
+            val last = s.messages.lastOrNull()
+            if (last != null && last.id == id && last.role == Role.ASSISTANT) {
+                val sep = if (newSegment && last.content.isNotEmpty() && !last.content.last().isWhitespace() &&
+                    !text.first().isWhitespace()
+                ) "\n\n" else ""
+                s.copy(messages = s.messages.dropLast(1) + last.copy(content = last.content + sep + text))
+            } else {
+                s.copy(messages = s.messages + ChatUiMessage(id = id, content = text, role = Role.ASSISTANT))
+            }
+        }
+    }
+
+    /** Nothing buffered may outlive the reply it belongs to. */
+    private fun discardPendingChunks() {
+        chunkFlushJob?.cancel()
+        chunkFlushJob = null
+        pendingChunks.setLength(0)
+        pendingChunkId = null
+        pendingNewSegment = false
     }
 
     private fun armStreamIdleTimer() {
@@ -1163,6 +1206,8 @@ class MedAssistViewModel(
     fun stopReply() {
         if (!_state.value.canStop) return
         stoppingReply = true
+        flushChunks()
+        discardPendingChunks()
         streamIdleJob?.cancel()
         responseTimeoutJob?.cancel()
         hadStreamBreak = false
@@ -1390,6 +1435,7 @@ class MedAssistViewModel(
     private fun setVoiceIdle() = _state.update { it.copy(voiceStatus = VoiceStatus.IDLE, voiceLevels = emptyList()) }
 
     override fun onCleared() {
+        discardPendingChunks()
         voiceMeterJob?.cancel()
         recorder.cancel()
         voiceTimeoutJob?.cancel()
@@ -1407,6 +1453,9 @@ class MedAssistViewModel(
     }
 
     companion object {
+        /** How often streamed tokens are published to the UI. ~30 a second. */
+        private const val CHUNK_FLUSH_MS = 33L
+
         /** Shorter than this is treated as an accidental tap. */
         private const val MIN_VOICE_MS = 700L
         /** Mic amplitude that counts as speech (0..32767). */
