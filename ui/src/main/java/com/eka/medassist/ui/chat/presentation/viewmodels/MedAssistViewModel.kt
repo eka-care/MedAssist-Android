@@ -37,6 +37,8 @@ import com.eka.medassist.ui.chat.presentation.models.Feedback
 import com.eka.medassist.ui.chat.presentation.models.MedAssistUiState
 import com.eka.medassist.ui.chat.presentation.models.Role
 import com.eka.medassist.ui.chat.presentation.models.SendOptions
+import com.eka.medassist.ui.chat.logic.ChatRules
+import com.eka.medassist.ui.chat.presentation.voice.VoiceInput
 import com.eka.medassist.ui.chat.presentation.models.UiError
 import com.eka.medassist.ui.chat.logger.MedAssistLogger
 import com.eka.medassist.ui.chat.presentation.models.VoiceStatus
@@ -185,7 +187,7 @@ class MedAssistViewModel(
         }
         if (args.forceNewChat) clearStoredSession()
 
-        val ctx = buildContext(args.patient)
+        val ctx = ChatRules.buildContext(args.extraContext, args.patient)
 
         client = MatrixClient(
             context = app,
@@ -263,22 +265,19 @@ class MedAssistViewModel(
         // start a fresh chat for this patient instead of resuming the wrong one.
         val stored = storedSessionId
         val wanted = args.patient
-        if (stored != null && wanted != null && prefs.patientFor(stored)?.let { samePatient(it, wanted) } != true) {
+        if (stored != null && wanted != null && prefs.patientFor(stored)?.let { ChatRules.samePatient(it, wanted) } != true) {
             startSession(forceNewSession = true)
             return
         }
         startSession()
     }
 
-    private fun samePatient(a: MedAssistPatient, b: MedAssistPatient) =
-        if (a.oid != null && b.oid != null) a.oid == b.oid else a.name == b.name
-
     /** Show (and use as context for later new chats) the patient this chat was started with. */
     private fun restorePatient(sessionId: String, preferHost: Boolean) {
         val patient = if (preferHost && args.patient != null) args.patient else prefs.patientFor(sessionId)
         if (patient == _state.value.patient) return
         _state.update { it.copy(patient = patient) }
-        client.updateContext(buildContext(patient))
+        client.updateContext(ChatRules.buildContext(args.extraContext, patient))
     }
 
     /**
@@ -360,7 +359,7 @@ class MedAssistViewModel(
                 _state.update { it.copy(error = null, connection = ConnectionStatus.NOT_CONNECTED, startNewConnection = true) }
             } else {
                 _state.update {
-                    it.copy(connection = ConnectionStatus.NOT_CONNECTED, error = UiError("Connection Lost!", errorText(e)), showRetry = true)
+                    it.copy(connection = ConnectionStatus.NOT_CONNECTED, error = UiError("Connection Lost!", ChatRules.errorText(e)), showRetry = true)
                 }
             }
         }
@@ -374,7 +373,7 @@ class MedAssistViewModel(
         else _state.update { it.copy(messages = cached) }
         try {
             val stored = client.sessionMessages(sessionId)
-            val (messages, entries) = restoreTranscript(stored)
+            val (messages, entries) = ChatRules.restoreTranscript(stored)
             if (messages.isNotEmpty() || cached.isNullOrEmpty()) {
                 _state.update { it.copy(messages = messages, elicitations = it.elicitations + entries) }
                 cache.saveMessages(sessionId, messages)
@@ -400,7 +399,7 @@ class MedAssistViewModel(
         if (patient == _state.value.patient) return
         track(if (patient != null) "patient_attached" else "patient_removed")
         _state.update { it.copy(patient = patient) }
-        client.updateContext(buildContext(patient))
+        client.updateContext(ChatRules.buildContext(args.extraContext, patient))
         startNewChat()
     }
 
@@ -408,29 +407,6 @@ class MedAssistViewModel(
      * Session context: the host's extra context plus the patient as `profile`. A scribe
      * snapshot's `patient` field (ekascribe-web shape) follows the attached patient too.
      */
-    private fun buildContext(patient: MedAssistPatient?): JsonObject? {
-        val extra = args.extraContext
-        if (patient == null && extra == null) return null
-        return buildJsonObject {
-            extra?.forEach { (k, v) -> put(k, v) }
-            if (extra?.containsKey("patient") == true) {
-                put("patient", patient?.let {
-                    buildJsonObject {
-                        put("name", it.name)
-                        it.age?.let { a -> put("age", a) }
-                        it.sex?.let { s -> put("sex", s) }
-                    }
-                } ?: JsonNull)
-            }
-            if (patient != null) put("profile", buildJsonObject {
-                put("name", patient.name)
-                patient.age?.let { put("age", it) }
-                patient.sex?.let { put("gender", it) }
-                patient.oid?.let { put("oid", it) }
-            })
-        }
-    }
-
     fun openPastSession(sessionId: String) = startSession(sessionId = sessionId)
 
     fun loadPastSessions() {
@@ -879,7 +855,7 @@ class MedAssistViewModel(
         ) return
 
         o.files?.takeIf { it.isNotEmpty() }?.let { files ->
-            validateBatch(files)?.let { _state.update { s -> s.copy(error = it) }; return }
+            ChatRules.validateBatch(files)?.let { _state.update { s -> s.copy(error = it) }; return }
             if (files.size + fileUploadsThisSession > MatrixFile.MAX_FILES_PER_SESSION) {
                 val left = MatrixFile.MAX_FILES_PER_SESSION - fileUploadsThisSession
                 _state.update {
@@ -945,7 +921,7 @@ class MedAssistViewModel(
                 client.callTool(es.toolId, es.messageId, JsonObject(params))
                 isElicitation = true
             } catch (t: Throwable) {
-                val msg = errorText(t)
+                val msg = ChatRules.errorText(t)
                 val tr = buildJsonObject {
                     es.toolResult?.forEach { (k, v) -> put(k, v) }
                     put("error", "Tool call failed: $msg")
@@ -1089,18 +1065,14 @@ class MedAssistViewModel(
             _state.update { it.copy(error = UiError(title, desc)) }
         }
         val valid = files.filter(MatrixFile::isValid)
-        validateBatch(valid, current.size)?.let { err -> _state.update { it.copy(error = err) }; return }
+        ChatRules.validateBatch(valid, current.size)?.let { err -> _state.update { it.copy(error = err) }; return }
         _state.update { it.copy(attachments = current + valid) }
     }
 
     /** Files the doctor can still add to this message (3 per message, 5 per chat). */
-    fun attachmentSlotsLeft(): Int {
-        val attached = _state.value.attachments.size
-        return minOf(
-            MatrixFile.MAX_FILES_PER_MESSAGE - attached,
-            MatrixFile.MAX_FILES_PER_SESSION - fileUploadsThisSession - attached,
-        ).coerceAtLeast(0)
-    }
+
+    fun attachmentSlotsLeft(): Int =
+        ChatRules.attachmentSlotsLeft(_state.value.attachments.size, fileUploadsThisSession)
 
     /** Reports that no more files fit; true when the picker shouldn't open. */
     fun checkAttachmentRoom(): Boolean {
@@ -1235,39 +1207,6 @@ class MedAssistViewModel(
         }
     }
 
-    private fun validateBatch(files: List<MatrixFile>, alreadyAttached: Int = 0): UiError? {
-        if (files.size + alreadyAttached > MatrixFile.MAX_FILES_PER_MESSAGE) {
-            return UiError("You can only upload up to ${MatrixFile.MAX_FILES_PER_MESSAGE} files at a time", "Please remove some files and try again.")
-        }
-        if (files.sumOf { it.size } > MatrixFile.MAX_TOTAL_SIZE) {
-            return UiError("Total file size limit of 10 MB exceeded", "Please reduce the size of the files or try again with less files")
-        }
-        return null
-    }
-
-    private fun restoreTranscript(stored: List<StoredMessage>): Pair<List<ChatUiMessage>, Map<String, ElicitationEntry>> {
-        val out = mutableListOf<ChatUiMessage>()
-        val entries = mutableMapOf<String, ElicitationEntry>()
-        for (m in stored) {
-            val ts = m.timestamp?.let { if (it < 1e12) (it * 1000).toLong() else it.toLong() } ?: System.currentTimeMillis()
-            val usable = m.elicitations.orEmpty().filter { it.str("tool_id") != null && it.str("component") != null }
-            out += ChatUiMessage(
-                id = m.id, content = m.content, role = if (m.role == "user") Role.USER else Role.ASSISTANT, timestamp = ts,
-                toolKeys = usable.map { "${m.id}::${it.str("tool_id")}" }, isResponseFromTool = usable.isNotEmpty(),
-            )
-            for (e in usable) {
-                val toolId = e.str("tool_id")!!
-                val answer = e.str("answer")
-                entries["${m.id}::$toolId"] = ElicitationEntry(
-                    toolId = toolId, messageId = m.id, component = e.str("component"),
-                    input = e["input"] as? JsonObject, active = false, disabled = true, answer = answer,
-                )
-                if (!answer.isNullOrBlank()) out += ChatUiMessage("${m.id}::$toolId::answer", answer, Role.USER, timestamp = ts)
-            }
-        }
-        return out to entries
-    }
-
     private fun isOnline(): Boolean {
         val cm = getApplication<Application>().getSystemService(ConnectivityManager::class.java) ?: return true
         val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
@@ -1276,169 +1215,40 @@ class MedAssistViewModel(
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    private fun errorText(t: Throwable): String = (t as? MatrixApiException)?.body?.msg ?: t.message ?: "An unexpected error occurred"
 
     // ================================================================== voice input
 
-    /*
-     * Same as the web widget (synapse useChat): record one clip, send it to Matrix as a single
-     * base64 audio message; Matrix answers with audio_transcript (shown as the doctor's message)
-     * and then the agent's reply.
-     */
-    private val recorder = AudioMessageRecorder(app)
-    private var voiceTimeoutJob: Job? = null
+    /** Record a clip, send it as one audio message, show the transcript. See [VoiceInput]. */
+    private val voice = VoiceInput(
+        app = app,
+        scope = viewModelScope,
+        state = _state,
+        toast = { _toasts.tryEmit(it) },
+        track = { event, params -> track(event, *params) },
+        isOnline = ::isOnline,
+        sendAudio = { audio -> sendMessageInternal(SendOptions(audio = audio)) },
+        setWaiting = ::setWaiting,
+        onTranscript = { streamIdleJob?.cancel() },
+    )
 
     /** Call once the mic permission is granted. */
-    fun startVoiceInput() {
-        val s = _state.value
-        if (s.voiceStatus != VoiceStatus.IDLE || recorder.isRecording) return
-        if (!s.canSendLive) {
-            _toasts.tryEmit(if (s.connection != ConnectionStatus.CONNECTED) "Voice needs a connection. Please try again in a moment." else "Wait for the reply to finish.")
-            return
-        }
-        val startedAt = System.currentTimeMillis()
-        recorder.start(
-            onDone = { audio -> onVoiceRecorded(audio) },
-            onError = { e ->
-                MedAssistLogger.d("MedAssist", "voice: recording failed: ${e.message}")
-                setVoiceIdle()
-                // MediaRecorder.stop() throws when stopped right after start
-                _toasts.tryEmit(
-                    if (System.currentTimeMillis() - startedAt < MIN_VOICE_MS) "Didn't catch that. Tap the mic and speak a little longer."
-                    else "Couldn't use the microphone. It may be in use by another app."
-                )
-            },
-        )
-        if (recorder.isRecording) {
-            _state.update { it.copy(voiceStatus = VoiceStatus.LISTENING, voiceStartedAt = startedAt, voiceLevels = emptyList()) }
-            track("voice_started")
-            startVoiceMeter()
-        }
-    }
-
-    private var voiceMeterJob: Job? = null
-    private var voiceDetector = SilenceDetector()
-
-    /** Live waveform from the mic level; ends the clip after the doctor stops talking. */
-    private fun startVoiceMeter() {
-        voiceDetector = SilenceDetector(speechLevel = SPEECH_LEVEL)
-        voiceMeterJob?.cancel()
-        voiceMeterJob = viewModelScope.launch {
-            while (_state.value.voiceStatus == VoiceStatus.LISTENING) {
-                delay(100)
-                val amp = recorder.maxAmplitude()
-                _state.update { it.copy(voiceLevels = (it.voiceLevels + SilenceDetector.level(amp)).takeLast(48)) }
-                when (voiceDetector.onSample(amp, System.currentTimeMillis())) {
-                    SilenceDetector.Verdict.SPEECH_ENDED -> {
-                        track("voice_auto_stopped")
-                        finishVoiceInput()
-                        return@launch
-                    }
-                    SilenceDetector.Verdict.NO_SPEECH -> {
-                        cancelVoiceInput()
-                        _toasts.tryEmit("Couldn't hear you. Check the mic and try again.")
-                        track("voice_no_speech")
-                        return@launch
-                    }
-                    SilenceDetector.Verdict.KEEP_LISTENING -> Unit
-                }
-            }
-        }
-    }
+    fun startVoiceInput() = voice.start()
 
     /** Stop listening and send the clip (also called by the recorder's 15-minute cap). */
-    fun finishVoiceInput() {
-        if (_state.value.voiceStatus != VoiceStatus.LISTENING) return
-        voiceMeterJob?.cancel()
-        if (!voiceDetector.heardSpeech) {
-            // Nothing loud enough was said: don't send silence
-            recorder.cancel()
-            setVoiceIdle()
-            _toasts.tryEmit("Couldn't hear you. Speak a little louder and try again.")
-            track("voice_no_speech")
-            return
-        }
-        track("voice_sent", "ms" to (System.currentTimeMillis() - _state.value.voiceStartedAt))
-        recorder.stop()
-    }
+    fun finishVoiceInput() = voice.finish()
 
-    private fun onVoiceRecorded(audio: AudioPayload) {
-        if (audio.durationMs < MIN_VOICE_MS) {
-            setVoiceIdle()
-            _toasts.tryEmit("Didn't catch that. Tap the mic and speak a little longer.")
-            return
-        }
-        val s = _state.value
-        if (!isOnline() || s.connection != ConnectionStatus.CONNECTED) {
-            setVoiceIdle()
-            _toasts.tryEmit("You're offline, so the voice message wasn't sent. Please try again.")
-            return
-        }
-        _state.update { it.copy(voiceStatus = VoiceStatus.TRANSCRIBING) }
-        viewModelScope.launch {
-            sendMessageInternal(SendOptions(audio = audio))
-            voiceTimeoutJob?.cancel()
-            voiceTimeoutJob = viewModelScope.launch {
-                delay(VOICE_TIMEOUT_MS)
-                failVoiceMessage("It took too long to transcribe.")
-            }
-        }
-    }
+    /** Drop a recording in progress (cancel tapped, app backgrounded, new chat). */
+    fun cancelVoiceInput() = voice.cancel()
 
-    /** The doctor's words: fill the "Voice message" bubble; the reply follows. */
-    private fun onAudioTranscript(text: String) {
-        streamIdleJob?.cancel()
-        _state.update { s ->
-            val i = s.messages.indexOfLast { it.role == Role.USER && it.isAudio && it.content.isBlank() }
-            val messages = if (i >= 0) s.messages.toMutableList().also { it[i] = it[i].copy(content = text) }
-            else s.messages + ChatUiMessage(id = System.currentTimeMillis().toString(), content = text, role = Role.USER)
-            s.copy(messages = messages, isStreaming = false, progressMessage = null)
-        }
-        // The reply follows the transcript, so keep "Thinking" up
-        setWaiting(true)
-    }
+    private fun onAudioTranscript(text: String) = voice.onTranscript(text)
 
-    /**
-     * A sent clip got no transcript (rejected, offline, timed out): drop its "Voice message"
-     * bubble and tell the doctor, instead of leaving it on "Transcribing...".
-     */
-    private fun failVoiceMessage(reason: String?) {
-        voiceTimeoutJob?.cancel()
-        if (_state.value.voiceStatus != VoiceStatus.TRANSCRIBING) return
-        _state.update { s ->
-            val i = s.messages.indexOfLast { it.role == Role.USER && it.isAudio && it.content.isBlank() }
-            s.copy(
-                messages = if (i >= 0) s.messages.filterIndexed { idx, _ -> idx != i } else s.messages,
-                voiceStatus = VoiceStatus.IDLE,
-                error = UiError("Voice message not sent", listOfNotNull(reason, "Please try again or type your question.").joinToString(" ")),
-                showRetry = false,
-            )
-        }
-        setWaiting(false)
-    }
+    private fun failVoiceMessage(reason: String?) = voice.fail(reason)
 
-    /** The server answered (transcript, reply, tool, error or offline): stop showing "transcribing". */
-    private fun clearTranscribing() {
-        voiceTimeoutJob?.cancel()
-        if (_state.value.voiceStatus == VoiceStatus.TRANSCRIBING) setVoiceIdle()
-    }
-
-    /** Drop a recording in progress (cancel tapped, app backgrounded, new chat). A sent clip can't be recalled. */
-    fun cancelVoiceInput() {
-        if (_state.value.voiceStatus != VoiceStatus.LISTENING) return
-        voiceMeterJob?.cancel()
-        recorder.cancel()
-        setVoiceIdle()
-        track("voice_cancelled")
-    }
-
-    private fun setVoiceIdle() = _state.update { it.copy(voiceStatus = VoiceStatus.IDLE, voiceLevels = emptyList()) }
+    private fun clearTranscribing() = voice.clearTranscribing()
 
     override fun onCleared() {
         discardPendingChunks()
-        voiceMeterJob?.cancel()
-        recorder.cancel()
-        voiceTimeoutJob?.cancel()
+        voice.release()
         client.destroy()
         super.onCleared()
     }
@@ -1457,10 +1267,7 @@ class MedAssistViewModel(
         private const val CHUNK_FLUSH_MS = 33L
 
         /** Shorter than this is treated as an accidental tap. */
-        private const val MIN_VOICE_MS = 700L
         /** Mic amplitude that counts as speech (0..32767). */
-        private const val SPEECH_LEVEL = 1_800
-        private const val VOICE_TIMEOUT_MS = 30_000L
         const val INITIAL_BOT_MESSAGE_ID = "initial-bot-message"
         private const val STREAM_IDLE_TIMEOUT_MS = 30_000L
         private const val RESPONSE_TIMEOUT_MS = 30_000L
