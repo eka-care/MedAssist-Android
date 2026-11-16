@@ -141,14 +141,6 @@ fun MedAssistChat(
 
     // Opened from the host's attach button: start with the + sheet up (once, not after rotation)
     var showAttachSheet by rememberSaveable { mutableStateOf(args.openAttach) }
-    // Asked for voice before the chat existed: wait for the connection, then hold the mic once.
-    var startVoice by rememberSaveable { mutableStateOf(args.openVoice) }
-    LaunchedEffect(startVoice, state.canSendLive) {
-        if (startVoice && state.canSendLive) {
-            startVoice = false
-            withMicPermission { viewModel.startVoiceInput() }
-        }
-    }
     // Newest records for the sheet's quick list; null while loading
     var recentRecords by remember { mutableStateOf<List<MedAssistRecord>?>(null) }
     LaunchedEffect(showAttachSheet, state.patient) {

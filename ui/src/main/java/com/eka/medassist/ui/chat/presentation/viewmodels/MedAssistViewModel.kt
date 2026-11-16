@@ -105,8 +105,6 @@ data class MedAssistArgs(
     val initialMessage: String? = null,
     /** Open the + sheet (records, gallery, camera, files) as soon as the chat shows. */
     val openAttach: Boolean = false,
-    /** Hold the mic as soon as the chat is live, for a doctor who tapped mic to get here. */
-    val openVoice: Boolean = false,
 )
 
 /**
