@@ -33,6 +33,7 @@ fun ConversationInput(
     preparingAttachments: Boolean = false,
     onStop: (() -> Unit)? = null,
     voiceLevels: List<Float> = emptyList(),
+    patientSlot: (@Composable () -> Unit)? = null,
 ) {
     val focusRequester = remember { FocusRequester() }
     AnimatedContent(
@@ -58,6 +59,7 @@ fun ConversationInput(
                 onMicrophoneClick = onMicrophoneClick,
                 preparingAttachments = preparingAttachments,
                 onStop = onStop,
+                patientSlot = patientSlot,
             )
         } else {
             AudioInputComponent(

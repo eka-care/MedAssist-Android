@@ -1,5 +1,6 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -80,13 +81,13 @@ fun ChatBubbleRight(
                     ),
                 border = BorderStroke(width = 0.dp, color = Color.Transparent),
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 0.dp,
-                    bottomStart = 16.dp,
-                    bottomEnd = 16.dp
+                    topStart = 18.dp,
+                    topEnd = 18.dp,
+                    bottomStart = 18.dp,
+                    bottomEnd = 6.dp
                 ),
                 content = {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                         if (message.files.isNotEmpty()) {
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -101,23 +102,23 @@ fun ChatBubbleRight(
                                 Icon(
                                     painter = painterResource(R.drawable.ic_microphone_regular),
                                     contentDescription = null,
-                                    tint = DarwinTouchPrimary,
+                                    tint = Color.White,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
-                                Text("Voice message · Transcribing...", style = touchBodyRegular, color = DarwinTouchNeutral800)
+                                Text("Voice message · Transcribing...", style = touchBodyRegular, color = Color.White)
                             }
                         }
                         if (hasText) {
                             MarkdownText(
                                 markdown = message.content,
-                                style = touchBodyRegular,
-                                color = DarwinTouchNeutral800
+                                style = touchBodyRegular.copy(fontSize = 15.sp, lineHeight = 21.sp),
+                                color = Color.White
                             )
                         }
                     }
                 },
-                background = Color.White
+                background = DarwinTouchPrimary
             )
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (hasText) {

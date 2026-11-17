@@ -18,7 +18,9 @@ val provider = GoogleFont.Provider(
 val fontName = GoogleFont("Inter")
 
 val ekaFontFamily = FontFamily(
-    Font(googleFont = fontName, fontProvider = provider)
+    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Normal),
+    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Medium),
+    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.SemiBold),
 )
 
 val touchTitle1Regular = TextStyle.Default.copy(
@@ -31,7 +33,7 @@ val touchTitle1Regular = TextStyle.Default.copy(
 
 val touchTitle1Bold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 28.sp,
     lineHeight = 36.sp,
@@ -39,7 +41,7 @@ val touchTitle1Bold = TextStyle.Default.copy(
 
 val touchTitle3Bold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 20.sp,
     lineHeight = 28.sp,
@@ -71,7 +73,7 @@ val touchLargeTitleRegular = TextStyle.Default.copy(
 
 val touchBody2Bold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 13.sp,
     lineHeight = 20.sp,
@@ -95,7 +97,7 @@ val touchCaption1Regular = TextStyle.Default.copy(
 
 val touchCaption2SemiBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 11.sp,
     lineHeight = 16.sp,
@@ -103,7 +105,7 @@ val touchCaption2SemiBold = TextStyle.Default.copy(
 
 val touchCaption2ExtraBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.ExtraBold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 11.sp,
     lineHeight = 16.sp,
@@ -111,7 +113,7 @@ val touchCaption2ExtraBold = TextStyle.Default.copy(
 
 val touchCaption1Bold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 12.sp,
     lineHeight = 16.sp,
@@ -119,7 +121,7 @@ val touchCaption1Bold = TextStyle.Default.copy(
 
 val touchCaption2Bold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 10.sp,
     lineHeight = 16.sp,
@@ -136,7 +138,7 @@ val touchCalloutRegular = TextStyle.Default.copy(
 
 val touchCalloutBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 14.sp,
     lineHeight = 20.sp,
@@ -160,7 +162,7 @@ val touchBody3Regular = TextStyle.Default.copy(
 
 val touchBodyBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 16.sp,
     lineHeight = 24.sp,
@@ -176,7 +178,7 @@ val touchLabelRegular = TextStyle.Default.copy(
 
 val touchLabelBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 12.sp,
     lineHeight = 16.sp,
@@ -192,7 +194,7 @@ val touchSubheadlineRegular = TextStyle.Default.copy(
 
 val touchSubheadlineBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 15.sp,
     lineHeight = 24.sp,
@@ -208,7 +210,7 @@ val touchFootnoteRegular = TextStyle.Default.copy(
 
 val touchFootnoteBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 13.sp,
     lineHeight = 20.sp,
@@ -216,7 +218,7 @@ val touchFootnoteBold = TextStyle.Default.copy(
 
 val touchHeadlineBold = TextStyle.Default.copy(
     fontFamily = ekaFontFamily,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.SemiBold,
     fontStyle = FontStyle.Normal,
     fontSize = 16.sp,
     lineHeight = 20.sp,

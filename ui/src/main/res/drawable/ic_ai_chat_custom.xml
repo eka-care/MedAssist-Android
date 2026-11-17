@@ -1,13 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ask AI sparkle (ask-ai-icons handoff, ask-ai-sparkle-blue.svg): marks DocAssist's replies. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="18dp"
-    android:height="18dp"
-    android:viewportWidth="18"
-    android:viewportHeight="18">
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="8"
+    android:viewportHeight="8">
     <path
-        android:pathData="M10.125,10.125m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"
-        android:fillColor="#215FFF" />
-    <path
-        android:pathData="M5.875,5.875m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"
-        android:fillColor="#B45EDC"
-        android:fillAlpha="0.6" />
+        android:fillColor="#FF215FFF"
+        android:pathData="M4,0C4,2.4 5.6,4 8,4C5.6,4 4,5.6 4,8C4,5.6 2.4,4 0,4C2.4,4 4,2.4 4,0Z"/>
 </vector>

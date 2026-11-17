@@ -1,5 +1,11 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import com.eka.medassist.ui.chat.theme.DarwinTouchPrimary
+import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonColorsOverride
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
@@ -23,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.common.models.CTA
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
@@ -61,14 +68,14 @@ fun ChatBubbleLeft(
     Column {
         // Above the reply, not beside it: the text keeps the left margin either way.
         if (isFirstMessage) {
-            Icon(
-                modifier = Modifier
-                    .padding(bottom = 4.dp)
-                    .size(28.dp),
-                painter = painterResource(id = R.drawable.ic_ai_chat_custom),
-                tint = Color.Unspecified,
-                contentDescription = ""
-            )
+            Row(modifier = Modifier.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    modifier = Modifier.size(16.dp),
+                    painter = painterResource(id = R.drawable.ic_ai_chat_custom),
+                    tint = Color.Unspecified,
+                    contentDescription = null
+                )
+            }
         }
         Row(
             modifier = Modifier
@@ -124,6 +131,7 @@ fun ChatBubbleLeft(
                             onClick(CTA(action = ActionType.ON_POSITIVE_REVIEW_CLICKED.stringValue))
                             onFeedback(Feedback.LIKE)
                         },
+                        colors = IconButtonColorsOverride(contentColor = ActionGrey, disabledContentColor = DarwinTouchPrimary),
                         icon = R.drawable.ic_thumbs_up_regular,
                         contentDescription = "Thumbs up",
                         iconSize = 16.dp
@@ -136,6 +144,7 @@ fun ChatBubbleLeft(
                             onClick(CTA(action = ActionType.ON_NEGETIVE_REVIEW_CLICKED.stringValue))
                             onFeedback(Feedback.DISLIKE)
                         },
+                        colors = IconButtonColorsOverride(contentColor = ActionGrey, disabledContentColor = DarwinTouchPrimary),
                         icon = R.drawable.ic_thumbs_down_regular,
                         contentDescription = "Thumbs down",
                         iconSize = 16.dp
@@ -147,6 +156,7 @@ fun ChatBubbleLeft(
                         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, message)
                         context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     },
+                    colors = IconButtonColorsOverride(contentColor = ActionGrey),
                     icon = R.drawable.ic_share_nodes_regular,
                     contentDescription = "Share",
                     iconSize = 16.dp
@@ -156,6 +166,7 @@ fun ChatBubbleLeft(
                         onClick(CTA(action = ActionType.ON_COPY_CLICKED.stringValue))
                         clipboard.setText(AnnotatedString(message))
                     },
+                    colors = IconButtonColorsOverride(contentColor = ActionGrey),
                     icon = R.drawable.ic_copy_regular,
                     contentDescription = "Copy",
                     iconSize = 16.dp
@@ -178,7 +189,7 @@ fun ChatBubbleLeft(
 @Composable
 private fun ReplyMarkdown(text: String, typing: Boolean) {
     val blocks = remember(text, typing) { markdownBlocks(text, typing) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         blocks.forEachIndexed { i, block ->
             key(i) {
                 if (block.preparingTable) {
@@ -193,10 +204,14 @@ private fun ReplyMarkdown(text: String, typing: Boolean) {
                         // outside it, leaving a blank gap, so fill the bubble instead. Ellipsizing
                         // blanks it out too: Android skips the spans that draw the rows.
                         modifier = Modifier.fillMaxWidth(),
-                        markdown = block.text,
+                        markdown = smallHeadings(block.text),
                         truncateOnTextOverflow = !block.isTable,
                         enableSoftBreakAddsNewLine = true,
-                        style = touchBodyRegular.copy(color = DarwinTouchNeutral1000)
+                        style = touchBodyRegular.copy(
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            color = DarwinTouchNeutral1000,
+                        )
                     )
                 }
             }
@@ -233,3 +248,10 @@ internal fun markdownBlocks(text: String, typing: Boolean): List<MarkdownBlock> 
     return blocks
 }
 
+
+/** Copy, share and feedback sit back from the reply. */
+private val ActionGrey = Color(0xFF8D93A8)
+
+/** Markwon draws # at 2x and ## at 1.5x the body size; replies read better with headings near body size. */
+private val BigHeading = Regex("(?m)^#{1,2} ")
+internal fun smallHeadings(markdown: String): String = markdown.replace(BigHeading, "### ")
