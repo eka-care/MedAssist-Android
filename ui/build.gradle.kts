@@ -45,9 +45,10 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
 
-                groupId = "com.eka"
-                artifactId = "medassist"
-                version = "2.0.0"
+                // Same coordinates JitPack gives this module: com.github.eka-care.MedAssist-Android:ui:<tag>
+                groupId = "com.github.eka-care.MedAssist-Android"
+                artifactId = "ui"
+                version = "1.1.1"
             }
         }
     }
