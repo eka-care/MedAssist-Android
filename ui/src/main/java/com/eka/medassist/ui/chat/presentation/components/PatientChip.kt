@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eka.medassist.ui.R
+import com.eka.medassist.ui.chat.client.LocalMedAssistLabels
 import com.eka.medassist.ui.chat.client.MedAssistPatient
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonType
 import com.eka.medassist.ui.chat.presentation.common.molecule.IconButtonWrapper
@@ -71,7 +72,7 @@ fun PatientChipRow(
                     modifier = Modifier.size(12.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Attach patient", style = touchCalloutRegular, color = DarwinTouchPrimary)
+                Text(LocalMedAssistLabels.current.attachPatient, style = touchCalloutRegular, color = DarwinTouchPrimary)
             }
             return@Row
         }
@@ -109,7 +110,7 @@ fun PatientChipRow(
                 onClick = onRemove,
                 icon = R.drawable.ic_xmark_regular,
                 iconSize = 12.dp,
-                contentDescription = "Remove patient",
+                contentDescription = LocalMedAssistLabels.current.removePatient,
             )
         }
     }
@@ -153,7 +154,7 @@ fun ComposerPatientChip(
                 modifier = Modifier.size(12.dp),
             )
             Spacer(Modifier.width(6.dp))
-            Text("Attach patient", style = touchCalloutRegular.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp), color = DarwinTouchPrimary, maxLines = 1)
+            Text(LocalMedAssistLabels.current.attachPatient, style = touchCalloutRegular.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp), color = DarwinTouchPrimary, maxLines = 1)
         }
         return
     }
@@ -190,7 +191,7 @@ fun ComposerPatientChip(
             onClick = onRemove,
             icon = R.drawable.ic_xmark_regular,
             iconSize = 10.dp,
-            contentDescription = "Remove patient",
+            contentDescription = LocalMedAssistLabels.current.removePatient,
         )
     }
 }

@@ -9,6 +9,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import com.eka.medassist.ui.chat.client.LocalMedAssistLabels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -156,7 +158,7 @@ fun MedAssistChat(
         }
     }
 
-    EkaTheme {
+    EkaTheme { CompositionLocalProvider(LocalMedAssistLabels provides args.labels) {
         ConversationScreen(
             viewModel = viewModel,
             onBackClick = onClose,
@@ -197,7 +199,7 @@ fun MedAssistChat(
                 onDismiss = { showAttachSheet = false },
             )
         }
-    }
+    } }
 }
 
 /** Records shown in the + sheet's quick list. */

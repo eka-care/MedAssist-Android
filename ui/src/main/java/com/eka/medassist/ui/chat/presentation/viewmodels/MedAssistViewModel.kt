@@ -51,6 +51,7 @@ import com.eka.medassist.ui.chat.data.AuthIdentity
 import com.eka.medassist.ui.chat.data.ChatCache
 import com.eka.medassist.ui.chat.presentation.models.Delivery
 import com.eka.conversation.matrix.AgentConfig
+import com.eka.medassist.ui.chat.client.MedAssistLabels
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
@@ -105,6 +106,8 @@ data class MedAssistArgs(
     val initialMessage: String? = null,
     /** Open the + sheet (records, gallery, camera, files) as soon as the chat shows. */
     val openAttach: Boolean = false,
+    /** Words for who the chat is about; defaults to the doctor app's. */
+    val labels: MedAssistLabels = MedAssistLabels(),
 )
 
 /**
