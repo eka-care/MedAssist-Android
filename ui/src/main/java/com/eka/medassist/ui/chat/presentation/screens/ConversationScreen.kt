@@ -472,15 +472,17 @@ private fun EmptyState(state: MedAssistUiState, onSuggestion: (String) -> Unit) 
             color = DarwinTouchNeutral600,
             modifier = Modifier.padding(top = 6.dp, bottom = 20.dp),
         )
-        val suggestions = state.initialMessage?.suggestions.orEmpty()
-        if (suggestions.isNotEmpty()) {
+        // The agent's own starters, else the host's (labels.suggestions)
+        val pills = state.initialMessage?.suggestions.orEmpty()
+            .mapNotNull { s -> (s.label ?: s.value)?.let { it to (s.value ?: it) } }
+            .ifEmpty { labels.suggestions.map { it to it } }
+        if (pills.isNotEmpty()) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                suggestions.forEach { s ->
-                    val label = s.label ?: s.value ?: return@forEach
-                    StarterPill(label, enabled = state.connection == ConnectionStatus.CONNECTED) { onSuggestion(s.value ?: label) }
+                pills.forEach { (label, value) ->
+                    StarterPill(label, enabled = state.connection == ConnectionStatus.CONNECTED) { onSuggestion(value) }
                 }
             }
         }
