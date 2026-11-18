@@ -59,6 +59,8 @@ fun ChatBubbleRight(
     onEdit: ((ChatUiMessage) -> Unit)? = null,
     onResend: ((ChatUiMessage) -> Unit)? = null,
     onRetry: ((ChatUiMessage) -> Unit)? = null,
+    /** No internet. Online but still connecting, a waiting message just says it is sending. */
+    offline: Boolean = false,
 ) {
     val clipboard = LocalClipboardManager.current
     val haptics = LocalHapticFeedback.current
@@ -143,7 +145,7 @@ fun ChatBubbleRight(
         }
         when (message.delivery) {
             Delivery.QUEUED -> Text(
-                "Waiting for internet to send",
+                if (offline) "No internet · sends when you are back online" else "Sending…",
                 style = touchCaption1Regular,
                 color = DarwinTouchNeutral600,
                 modifier = Modifier.padding(top = 4.dp, end = 4.dp),

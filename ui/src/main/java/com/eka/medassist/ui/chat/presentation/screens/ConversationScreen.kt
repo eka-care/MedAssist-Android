@@ -362,6 +362,7 @@ private fun ConversationContent(
                     onEdit = onEdit,
                     onResend = viewModel::resend,
                     onRetry = viewModel::retryMessage,
+                    offline = state.offline,
                 )
                 return@items
             }
