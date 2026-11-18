@@ -15,6 +15,8 @@ data class MedAssistLabels(
     val greetingName: String? = null,
     /** Line under the greeting on an empty chat, when the agent has no welcome message. */
     val emptyHint: String = "Add a patient and I'll bring up their earlier visits, or ask me anything clinical to get started.",
+    /** Starter pills on an empty chat when the agent's welcome message has none; tapping one sends it. */
+    val suggestions: List<String> = emptyList(),
 )
 
 val LocalMedAssistLabels = staticCompositionLocalOf { MedAssistLabels() }
