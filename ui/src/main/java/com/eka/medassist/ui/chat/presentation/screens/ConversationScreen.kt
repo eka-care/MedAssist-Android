@@ -2,6 +2,17 @@
 
 package com.eka.medassist.ui.chat.presentation.screens
 
+import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedVisibility
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -59,7 +70,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.eka.conversation.matrix.MatrixComponents
 import com.eka.medassist.ui.R
 import com.eka.medassist.ui.chat.client.MedAssistPatient
-import com.eka.medassist.ui.chat.presentation.components.PatientChipRow
+import com.eka.medassist.ui.chat.presentation.components.ComposerPatientChip
 import com.eka.medassist.ui.chat.presentation.components.PermissionAlertDialog
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleLeft
 import com.eka.medassist.ui.chat.presentation.components.ChatBubbleProcessing
@@ -173,6 +184,7 @@ fun ConversationScreen(
         ConversationHeader(
             title = state.title,
             subTitle = getConnectionState(state),
+            online = state.connection == ConnectionStatus.CONNECTED && !state.offline,
             onBackClick = requestClose,
             onNewClick = startNewChat,
             onHistoryClick = if (cfg?.theme?.feature != false) {
@@ -221,15 +233,6 @@ fun ConversationScreen(
             )
         }
 
-        // The attached patient sits with the composer, as context for what you are about to ask.
-        if (onPickPatient != null) {
-            PatientChipRow(
-                patient = state.patient,
-                enabled = !state.isStreaming && !state.isWaitingForResponse,
-                onPick = { onPickPatient { changePatient(it) } },
-                onRemove = { changePatient(null) },
-            )
-        }
 
         val active = state.activeElicitation
         val isAuthInput = active != null && active.second.component in MatrixComponents.AUTH
@@ -267,6 +270,17 @@ fun ConversationScreen(
                 preparingAttachments = state.preparingAttachments,
                 onStop = if (state.canStop) viewModel::stopReply else null,
                 voiceLevels = state.voiceLevels,
+                // The attached patient sits inside the composer, as context for what you ask next
+                patientSlot = if (onPickPatient != null) {
+                    {
+                        ComposerPatientChip(
+                            patient = state.patient,
+                            enabled = !state.isStreaming && !state.isWaitingForResponse,
+                            onPick = { onPickPatient { changePatient(it) } },
+                            onRemove = { changePatient(null) },
+                        )
+                    }
+                } else null,
             )
         }
     }
@@ -316,6 +330,13 @@ private fun ConversationContent(
         if (messages.isNotEmpty()) listState.animateScrollToItem(0)
     }
 
+    val scope = rememberCoroutineScope()
+    // Newest message is item 0 (reverse layout): anything past it means the doctor scrolled up
+    val awayFromLatest by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 120 }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState,
@@ -341,6 +362,7 @@ private fun ConversationContent(
                     onEdit = onEdit,
                     onResend = viewModel::resend,
                     onRetry = viewModel::retryMessage,
+                    offline = state.offline,
                 )
                 return@items
             }
@@ -382,6 +404,31 @@ private fun ConversationContent(
                 }
             }
         }
+    }
+    AnimatedVisibility(
+        visible = awayFromLatest,
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .shadow(elevation = 6.dp, shape = CircleShape)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, Color(0xFFE6E9F1), CircleShape)
+                .clickable { scope.launch { listState.animateScrollToItem(0) } },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_left_regular),
+                contentDescription = "Scroll to latest",
+                tint = DarwinTouchNeutral800,
+                modifier = Modifier.size(14.dp).rotate(-90f),
+            )
+        }
+    }
     }
 }
 

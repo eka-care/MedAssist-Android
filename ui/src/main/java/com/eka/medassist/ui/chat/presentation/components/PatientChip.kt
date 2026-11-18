@@ -1,5 +1,11 @@
 package com.eka.medassist.ui.chat.presentation.components
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -106,5 +112,85 @@ fun PatientChipRow(
                 contentDescription = "Remove patient",
             )
         }
+    }
+}
+
+/**
+ * The attached patient inside the composer's bottom row: "RK  Ravi Kumar · 42 M  ✕",
+ * or a dashed "Attach patient". Tap to change the patient, ✕ to remove it.
+ */
+@Composable
+fun ComposerPatientChip(
+    patient: MedAssistPatient?,
+    enabled: Boolean,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val shape = RoundedCornerShape(15.dp)
+    if (patient == null) {
+        Row(
+            modifier = Modifier
+                .height(30.dp)
+                .clip(shape)
+                .drawBehind {
+                    drawRoundRect(
+                        color = DarwinTouchPrimary.copy(alpha = 0.45f),
+                        cornerRadius = CornerRadius(15.dp.toPx()),
+                        style = Stroke(
+                            width = 1.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
+                        ),
+                    )
+                }
+                .clickable(enabled = enabled, onClick = onPick)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_user_regular),
+                contentDescription = null,
+                tint = DarwinTouchPrimary,
+                modifier = Modifier.size(12.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Attach patient", style = touchCalloutRegular.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp), color = DarwinTouchPrimary, maxLines = 1)
+        }
+        return
+    }
+    Row(
+        modifier = Modifier
+            .height(30.dp)
+            .clip(shape)
+            .background(DarwinTouchPrimaryBgLight)
+            .clickable(enabled = enabled, onClick = onPick)
+            .padding(start = 4.dp, end = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(DarwinTouchPrimary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(patient.initials, style = touchFootnoteBold.copy(fontSize = 9.sp), color = DarwinTouchNeutral0)
+        }
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = patient.label,
+            style = touchCalloutRegular.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp),
+            color = DarwinTouchPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        IconButtonWrapper(
+            type = IconButtonType.CUSTOM,
+            enabled = enabled,
+            onClick = onRemove,
+            icon = R.drawable.ic_xmark_regular,
+            iconSize = 10.dp,
+            contentDescription = "Remove patient",
+        )
     }
 }

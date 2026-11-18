@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ask AI mark (ask-ai-icons handoff, 17 Nov 2026): bubble, tail, sparkle, status dot. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path android:pathData="M5.5,2.5h7a4.5,4.5 0,0 1,4.5 4.5v4a4.5,4.5 0,0 1,-4.5 4.5h-7a4.5,4.5 0,0 1,-4.5 -4.5v-4a4.5,4.5 0,0 1,4.5 -4.5z">
+        <aapt:attr name="android:fillColor"><gradient android:type="linear" android:startX="1" android:startY="2" android:endX="17" android:endY="18"><item android:offset="0" android:color="#FF215FFF"/><item android:offset="1" android:color="#FF4F7DFF"/></gradient></aapt:attr>
+    </path>
+    <path android:pathData="M4.2,14.2L3.3,18.6L8.5,15.2Z">
+        <aapt:attr name="android:fillColor"><gradient android:type="linear" android:startX="1" android:startY="2" android:endX="17" android:endY="18"><item android:offset="0" android:color="#FF215FFF"/><item android:offset="1" android:color="#FF4F7DFF"/></gradient></aapt:attr>
+    </path>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M9,5C9,7.4 10.6,9 13,9C10.6,9 9,10.6 9,13C9,10.6 7.4,9 5,9C7.4,9 9,7.4 9,5Z"/>
+    <path android:fillColor="#FF98A2B3" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.2" android:pathData="M13.3,4.2a3,3 0,1 1,6 0a3,3 0,1 1,-6 0z"/>
+</vector>
