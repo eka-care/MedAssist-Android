@@ -2,6 +2,7 @@
 
 package com.eka.medassist.ui.chat.presentation.screens
 
+import com.eka.medassist.ui.chat.client.LocalMedAssistLabels
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
@@ -159,10 +160,11 @@ fun ConversationScreen(
         if (state.messages.any { it.role == Role.USER }) pendingPatient = PatientChange(p)
         else { text = ""; viewModel.cancelVoiceInput(); viewModel.attachPatient(p) }
     }
+    val labels = LocalMedAssistLabels.current
     pendingPatient?.let { change ->
         PermissionAlertDialog(
-            title = if (change.patient != null) "Start a new chat with ${change.patient.name}?" else "Remove patient?",
-            description = "The patient can't be added to a chat that has already started, so a new chat will begin. This chat stays in your history.",
+            title = if (change.patient != null) "Start a new chat with ${change.patient.name}?" else "${labels.removePatient}?",
+            description = "The ${labels.patientNoun} can't be changed in a chat that has already started, so a new chat will begin. This chat stays in your history.",
             confirmButtonLabel = "New chat",
             dismissButtonLabel = "Cancel",
             onDismiss = { pendingPatient = null },
@@ -441,6 +443,8 @@ private fun EmptyState(state: MedAssistUiState, onSuggestion: (String) -> Unit) 
     // Fixed for the chat's lifetime, so the greeting doesn't change under the doctor
     val greeting = remember(state.sessionId) { greetingFor(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
     val doctor = state.doctor
+    val labels = LocalMedAssistLabels.current
+    val greetName = doctor?.displayName ?: labels.greetingName?.takeIf { it.isNotBlank() }
     Column(
         Modifier
             .fillMaxSize()
@@ -451,10 +455,10 @@ private fun EmptyState(state: MedAssistUiState, onSuggestion: (String) -> Unit) 
         Text(
             text = buildAnnotatedString {
                 append(greeting)
-                if (doctor != null) {
+                if (greetName != null) {
                     append(", ")
                     withStyle(SpanStyle(brush = Brush.linearGradient(listOf(Color(0xFF215FFF), Color(0xFF7FA6FF))))) {
-                        append(doctor.displayName)
+                        append(greetName)
                     }
                 }
             },
@@ -463,7 +467,7 @@ private fun EmptyState(state: MedAssistUiState, onSuggestion: (String) -> Unit) 
         )
         Text(
             text = state.initialMessage?.text?.takeIf { it.isNotBlank() }
-                ?: "Add a patient and I'll bring up their earlier visits, or ask me anything clinical to get started.",
+                ?: labels.emptyHint,
             style = touchBodyRegular,
             color = DarwinTouchNeutral600,
             modifier = Modifier.padding(top = 6.dp, bottom = 20.dp),
