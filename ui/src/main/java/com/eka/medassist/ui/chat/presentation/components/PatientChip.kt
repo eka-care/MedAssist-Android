@@ -119,13 +119,14 @@ fun PatientChipRow(
 /**
  * The attached patient inside the composer's bottom row: "RK  Ravi Kumar · 42 M  ✕",
  * or a dashed "Attach patient". Tap to change the patient, ✕ to remove it.
+ * With [onPick] / [onRemove] null it only shows who the chat is about (no tap, no ✕).
  */
 @Composable
 fun ComposerPatientChip(
     patient: MedAssistPatient?,
     enabled: Boolean,
-    onPick: () -> Unit,
-    onRemove: () -> Unit,
+    onPick: (() -> Unit)?,
+    onRemove: (() -> Unit)?,
 ) {
     val shape = RoundedCornerShape(15.dp)
     if (patient == null) {
@@ -143,7 +144,7 @@ fun ComposerPatientChip(
                         ),
                     )
                 }
-                .clickable(enabled = enabled, onClick = onPick)
+                .then(if (onPick != null) Modifier.clickable(enabled = enabled, onClick = onPick) else Modifier)
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -163,8 +164,8 @@ fun ComposerPatientChip(
             .height(30.dp)
             .clip(shape)
             .background(DarwinTouchPrimaryBgLight)
-            .clickable(enabled = enabled, onClick = onPick)
-            .padding(start = 4.dp, end = 2.dp),
+            .then(if (onPick != null) Modifier.clickable(enabled = enabled, onClick = onPick) else Modifier)
+            .padding(start = 4.dp, end = if (onRemove != null) 2.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -185,13 +186,15 @@ fun ComposerPatientChip(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        IconButtonWrapper(
-            type = IconButtonType.CUSTOM,
-            enabled = enabled,
-            onClick = onRemove,
-            icon = R.drawable.ic_xmark_regular,
-            iconSize = 10.dp,
-            contentDescription = LocalMedAssistLabels.current.removePatient,
-        )
+        if (onRemove != null) {
+            IconButtonWrapper(
+                type = IconButtonType.CUSTOM,
+                enabled = enabled,
+                onClick = onRemove,
+                icon = R.drawable.ic_xmark_regular,
+                iconSize = 10.dp,
+                contentDescription = LocalMedAssistLabels.current.removePatient,
+            )
+        }
     }
 }
