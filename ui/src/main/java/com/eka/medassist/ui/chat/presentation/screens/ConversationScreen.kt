@@ -273,16 +273,23 @@ fun ConversationScreen(
                 onStop = if (state.canStop) viewModel::stopReply else null,
                 voiceLevels = state.voiceLevels,
                 // The attached patient sits inside the composer, as context for what you ask next
-                patientSlot = if (onPickPatient != null) {
-                    {
-                        ComposerPatientChip(
-                            patient = state.patient,
-                            enabled = !state.isStreaming && !state.isWaitingForResponse,
-                            onPick = { onPickPatient { changePatient(it) } },
-                            onRemove = { changePatient(null) },
-                        )
+                // No picker from the host: just show who the chat is about (no change / remove)
+                patientSlot = when {
+                    onPickPatient != null -> {
+                        {
+                            ComposerPatientChip(
+                                patient = state.patient,
+                                enabled = !state.isStreaming && !state.isWaitingForResponse,
+                                onPick = { onPickPatient { changePatient(it) } },
+                                onRemove = { changePatient(null) },
+                            )
+                        }
                     }
-                } else null,
+                    state.patient != null -> {
+                        { ComposerPatientChip(patient = state.patient, enabled = true, onPick = null, onRemove = null) }
+                    }
+                    else -> null
+                },
             )
         }
     }

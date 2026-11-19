@@ -1,6 +1,7 @@
 package com.eka.medassist.ui.chat.client
 
 import android.content.Context
+import java.io.File
 import com.eka.conversation.matrix.MatrixClient
 import com.eka.conversation.matrix.MatrixClientConfig
 import com.eka.conversation.matrix.MatrixEnvironment
@@ -19,7 +20,29 @@ import com.eka.medassist.ui.chat.presentation.viewmodels.MedAssistArgs
 object MedAssistSDK {
     const val TAG = "MedAssistSDK"
 
+    /** MedAssistPrefs files ("medassist_<agent>") and ChatCache's folder. */
+    private const val PREFS_PREFIX = "medassist_"
+    private const val CACHE_DIR = "medassist"
+
     fun setDebugMode(debugMode: Boolean) = MedAssistLogger.changeLogsVisibility(debugMode = debugMode)
+
+    /**
+     * The user logged out of the host app: forget every agent's Matrix login (session and refresh
+     * tokens, user id, saved chats) and the chats cached on the phone. The next chat then does a
+     * fresh token exchange with whoever logs in. Without this, logging back in as the same user
+     * resumes the old Matrix login. Call it from the host's logout.
+     */
+    fun logout(context: Context) {
+        val app = context.applicationContext
+        File(app.applicationInfo.dataDir, "shared_prefs")
+            .listFiles { f -> f.name.startsWith(PREFS_PREFIX) && f.name.endsWith(".xml") }
+            ?.forEach { f ->
+                val name = f.name.removeSuffix(".xml")
+                app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
+                app.deleteSharedPreferences(name)
+            }
+        File(app.cacheDir, CACHE_DIR).deleteRecursively()
+    }
 
     fun launch(context: Context, args: MedAssistArgs) {
         context.startActivity(ChatScreenActivity.intent(context, args))
